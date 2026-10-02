@@ -4,6 +4,8 @@
     <nav class="bottom-nav" aria-label="Navigation principale">
       <RouterLink to="/" class="nav-item" exact-active-class="is-active"><span class="nav-dot">⌂</span><span>Accueil</span></RouterLink>
       <RouterLink to="/maison" class="nav-item" active-class="is-active"><span class="nav-dot">◉</span><span>Maison</span></RouterLink>
+      <RouterLink to="/eclairage" class="nav-item" active-class="is-active"><span class="nav-dot">☀</span><span>Éclairage</span></RouterLink>
+      <RouterLink to="/volets" class="nav-item" active-class="is-active"><span class="nav-dot">▤</span><span>Volets</span></RouterLink>
       <RouterLink to="/musique" class="nav-item" active-class="is-active"><span class="nav-dot">♫</span><span>Musique</span></RouterLink>
       <RouterLink to="/climat" class="nav-item" active-class="is-active"><span class="nav-dot">◌</span><span>Climat</span></RouterLink>
       <RouterLink to="/reglages" class="nav-item" active-class="is-active"><span class="nav-dot">⚙</span><span>Réglages</span></RouterLink>
