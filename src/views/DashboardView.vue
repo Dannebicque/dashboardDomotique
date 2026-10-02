@@ -1,12 +1,30 @@
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import { CloudRain, Droplets, Gauge, House, Lightbulb, Wind } from 'lucide-vue-next'
 import MetricCard from '../components/MetricCard.vue'
 import SpotifyCard from '../components/SpotifyCard.vue'
 import TopBar from '../components/TopBar.vue'
-import { indoor, outdoor, rooms, spotify, upstairs, weather } from '../data/mock'
+import { homeService, type DashboardData } from '../services/homeService'
+import { indoor as fallbackIndoor, outdoor as fallbackOutdoor, rooms as fallbackRooms, spotify as fallbackSpotify, upstairs as fallbackUpstairs, weather as fallbackWeather } from '../data/mock'
 
-const lightsOn = rooms.flatMap((room) => room.lights).filter((light) => light.on).length
-const shuttersOpen = rooms.flatMap((room) => room.shutters).filter((shutter) => shutter.position > 0).length
+const dashboard = ref<DashboardData>({
+  indoor: structuredClone(fallbackIndoor),
+  outdoor: structuredClone(fallbackOutdoor),
+  upstairs: structuredClone(fallbackUpstairs),
+  weather: structuredClone(fallbackWeather),
+  spotify: structuredClone(fallbackSpotify),
+  rooms: structuredClone(fallbackRooms),
+})
+
+const indoor = computed(() => dashboard.value.indoor)
+const outdoor = computed(() => dashboard.value.outdoor)
+const upstairs = computed(() => dashboard.value.upstairs)
+const weather = computed(() => dashboard.value.weather)
+const spotify = computed(() => dashboard.value.spotify)
+const lightsOn = computed(() => dashboard.value.rooms.flatMap((room) => room.lights).filter((light) => light.on).length)
+const shuttersOpen = computed(() => dashboard.value.rooms.flatMap((room) => room.shutters).filter((shutter) => shutter.position > 0).length)
+
+onMounted(async () => { dashboard.value = await homeService.getDashboard() })
 </script>
 
 <template>
