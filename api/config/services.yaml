@@ -13,7 +13,6 @@ services:
     App\Infrastructure\Hue\HueClient:
         arguments:
             $bridgeUrl: '%env(string:HUE_BRIDGE_URL)%'
-            $applicationKey: '%env(string:HUE_APPLICATION_KEY)%'
 
     App\Infrastructure\Hue\HuePairingService:
         arguments:
