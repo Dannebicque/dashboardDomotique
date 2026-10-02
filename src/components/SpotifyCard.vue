@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { Pause, Play, SkipBack, SkipForward } from 'lucide-vue-next'
 import type { SpotifySnapshot } from '../types/home'
 import { integrationApi } from '../services/homeService'
@@ -7,7 +7,24 @@ import { integrationApi } from '../services/homeService'
 const props = defineProps<{ track: SpotifySnapshot }>()
 const emit = defineEmits<{ refresh: [] }>()
 const busy = ref(false)
-const progress = computed(() => props.track.durationMs > 0 ? Math.round((props.track.progressMs / props.track.durationMs) * 100) : 0)
+const liveProgressMs = ref(props.track.progressMs)
+let timer: number | undefined
+
+function syncTimer() {
+  if (timer) window.clearInterval(timer)
+  timer = undefined
+  liveProgressMs.value = props.track.progressMs
+  if (props.track.isPlaying) {
+    timer = window.setInterval(() => {
+      liveProgressMs.value = Math.min(liveProgressMs.value + 1000, props.track.durationMs)
+    }, 1000)
+  }
+}
+
+watch(() => [props.track.progressMs, props.track.durationMs, props.track.isPlaying], syncTimer, { immediate: true })
+onBeforeUnmount(() => { if (timer) window.clearInterval(timer) })
+
+const progress = computed(() => props.track.durationMs > 0 ? Math.min(100, (liveProgressMs.value / props.track.durationMs) * 100) : 0)
 
 async function command(action: 'play' | 'pause' | 'next' | 'previous') {
   busy.value = true
