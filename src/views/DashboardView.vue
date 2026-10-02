@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { CloudRain, Droplets, Gauge, House, Lightbulb, Wind } from 'lucide-vue-next'
 import MetricCard from '../components/MetricCard.vue'
-import SceneQuickActions from '../components/SceneQuickActions.vue'
 import SpotifyCard from '../components/SpotifyCard.vue'
 import TopBar from '../components/TopBar.vue'
 import { indoor, outdoor, rooms, spotify, upstairs, weather } from '../data/mock'
@@ -24,8 +23,6 @@ const shuttersOpen = rooms.flatMap((room) => room.shutters).filter((shutter) => 
         <span>Tout semble normal</span>
       </div>
     </section>
-
-    <SceneQuickActions />
 
     <section class="dashboard-grid">
       <article class="panel weather-card">
