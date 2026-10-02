@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { CloudSun, HousePlug, Music2, Radio, Router, Thermometer, Waves } from 'lucide-vue-next'
 import TopBar from '../components/TopBar.vue'
 import { settingsApi, type IntegrationStatus } from '../services/homeService'
@@ -107,7 +107,20 @@ async function configure(key: IntegrationKey) {
   }
 }
 
-onMounted(refresh)
+function refreshWhenVisible() {
+  if (document.visibilityState === 'visible') void refresh()
+}
+
+onMounted(() => {
+  void refresh()
+  window.addEventListener('pageshow', refreshWhenVisible)
+  document.addEventListener('visibilitychange', refreshWhenVisible)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('pageshow', refreshWhenVisible)
+  document.removeEventListener('visibilitychange', refreshWhenVisible)
+})
 </script>
 
 <template>
