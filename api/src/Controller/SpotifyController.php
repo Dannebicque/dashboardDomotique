@@ -18,6 +18,7 @@ final readonly class SpotifyController
         private RefreshTokenStore $tokens,
         #[Autowire('%env(string:SPOTIFY_CLIENT_ID)%')] private string $clientId,
         #[Autowire('%env(string:SPOTIFY_REDIRECT_URI)%')] private string $redirectUri,
+        #[Autowire('%env(string:FRONTEND_URL)%')] private string $frontendUrl,
     ) {}
 
     #[Route('', methods: ['GET'])]
@@ -42,13 +43,13 @@ final readonly class SpotifyController
     }
 
     #[Route('/callback', methods: ['GET'])]
-    public function callback(Request $request): JsonResponse
+    public function callback(Request $request): JsonResponse|RedirectResponse
     {
         if (!hash_equals((string) $request->getSession()->remove('spotify_oauth_state'), (string) $request->query->get('state'))) {
             return new JsonResponse(['error' => 'Invalid OAuth state.'], 400);
         }
         $this->spotify->exchangeCode((string) $request->query->get('code'), $this->redirectUri);
-        return new JsonResponse(['connected' => true]);
+        return new RedirectResponse(rtrim($this->frontendUrl, '/').'/reglages?spotify=connected');
     }
 
     #[Route('', methods: ['DELETE'])]
