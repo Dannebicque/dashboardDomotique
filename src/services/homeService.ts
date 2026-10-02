@@ -119,6 +119,9 @@ export const realHomeApi = {
   hueEvents: (onChange: () => void) => {
     const source = new EventSource('/api/integrations/hue/events')
     source.onmessage = () => onChange()
+    source.onerror = () => {
+      console.warn('[Hue] Event stream disconnected; EventSource will retry automatically.')
+    }
     return source
   },
   scenes: () => api<HueScene[]>('/api/integrations/hue/scenes'),
