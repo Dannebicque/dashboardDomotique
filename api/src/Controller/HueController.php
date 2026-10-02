@@ -61,6 +61,16 @@ final readonly class HueController
     public function events(): StreamedResponse
     {
         $response = new StreamedResponse(function (): void {
+            // This endpoint deliberately stays open for the lifetime of the
+            // browser EventSource. Keep the rest of PHP's execution limit unchanged.
+            set_time_limit(0);
+            ignore_user_abort(false);
+
+            while (ob_get_level() > 0) {
+                ob_end_flush();
+            }
+            ob_implicit_flush(true);
+
             echo ": connected\n\n";
             flush();
 
