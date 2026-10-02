@@ -17,3 +17,7 @@ services:
     App\Infrastructure\Hue\HuePairingService:
         arguments:
             $bridgeUrl: '%env(string:HUE_BRIDGE_URL)%'
+
+    App\Infrastructure\Integration\CredentialStore:
+        arguments:
+            $projectDir: '%kernel.project_dir%'
