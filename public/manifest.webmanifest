@@ -1,0 +1,11 @@
+{
+  "name": "Ma Maison",
+  "short_name": "Maison",
+  "description": "Dashboard domotique tablette",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d100f",
+  "theme_color": "#0d100f",
+  "orientation": "landscape",
+  "icons": []
+}
