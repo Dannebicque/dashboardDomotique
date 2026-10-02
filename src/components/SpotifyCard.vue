@@ -1,10 +1,23 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { Pause, Play, SkipBack, SkipForward } from 'lucide-vue-next'
 import type { SpotifySnapshot } from '../types/home'
+import { integrationApi } from '../services/homeService'
 
 const props = defineProps<{ track: SpotifySnapshot }>()
+const emit = defineEmits<{ refresh: [] }>()
+const busy = ref(false)
+const progress = computed(() => props.track.durationMs > 0 ? Math.round((props.track.progressMs / props.track.durationMs) * 100) : 0)
 
-const progress = computed(() => Math.round((props.track.progressMs / props.track.durationMs) * 100))
+async function command(action: 'play' | 'pause' | 'next' | 'previous') {
+  busy.value = true
+  try {
+    await integrationApi.spotifyCommand(action)
+    window.setTimeout(() => emit('refresh'), 350)
+  } finally {
+    busy.value = false
+  }
+}
 </script>
 
 <template>
@@ -12,9 +25,9 @@ const progress = computed(() => Math.round((props.track.progressMs / props.track
     <div class="panel-heading">
       <div>
         <div class="card-eyebrow">Spotify</div>
-        <h2>En cours de lecture</h2>
+        <h2>{{ track.isPlaying ? 'En cours de lecture' : 'Lecture en pause' }}</h2>
       </div>
-      <span class="service-chip">Connecté</span>
+      <span class="service-chip">{{ track.connected === false ? 'À connecter' : 'Connecté' }}</span>
     </div>
 
     <div class="now-playing">
@@ -23,17 +36,19 @@ const progress = computed(() => Math.round((props.track.progressMs / props.track
         <div class="track-title">{{ track.title }}</div>
         <div class="track-artist">{{ track.artist }}</div>
         <div class="track-album">{{ track.album }}</div>
+        <div v-if="track.deviceName" class="track-album">Sur {{ track.deviceName }}<template v-if="track.volumePercent != null"> · {{ track.volumePercent }}%</template></div>
 
         <div class="progress-track" aria-label="Progression de la lecture">
           <span :style="{ width: `${progress}%` }"></span>
         </div>
 
         <div class="player-controls">
-          <button aria-label="Titre précédent">‹‹</button>
-          <button class="play-button" :aria-label="track.isPlaying ? 'Pause' : 'Lecture'">
-            {{ track.isPlaying ? 'Ⅱ' : '▶' }}
+          <button :disabled="busy" aria-label="Titre précédent" @click="command('previous')"><SkipBack :size="18" /></button>
+          <button :disabled="busy" class="play-button" :aria-label="track.isPlaying ? 'Pause' : 'Lecture'" @click="command(track.isPlaying ? 'pause' : 'play')">
+            <Pause v-if="track.isPlaying" :size="20" />
+            <Play v-else :size="20" />
           </button>
-          <button aria-label="Titre suivant">››</button>
+          <button :disabled="busy" aria-label="Titre suivant" @click="command('next')"><SkipForward :size="18" /></button>
         </div>
       </div>
     </div>
