@@ -57,7 +57,35 @@ final readonly class SpotifyClient
         return $this->request('GET', '/v1/me/player/queue');
     }
 
-    private function request(string $method, string $path): array
+    public function devices(): array
+    {
+        return $this->request('GET', '/v1/me/player/devices');
+    }
+
+    public function setVolume(int $volume): void
+    {
+        $this->request('PUT', '/v1/me/player/volume?volume_percent='.max(0, min(100, $volume)));
+    }
+
+    public function setShuffle(bool $enabled): void
+    {
+        $this->request('PUT', '/v1/me/player/shuffle?state='.($enabled ? 'true' : 'false'));
+    }
+
+    public function setRepeat(string $state): void
+    {
+        if (!in_array($state, ['off', 'context', 'track'], true)) {
+            throw new \InvalidArgumentException('Unsupported repeat state.');
+        }
+        $this->request('PUT', '/v1/me/player/repeat?state='.$state);
+    }
+
+    public function transfer(string $deviceId): void
+    {
+        $this->request('PUT', '/v1/me/player', ['device_ids' => [$deviceId], 'play' => true]);
+    }
+
+    private function request(string $method, string $path, ?array $json = null): array
     {
         $refreshToken = $this->tokens->get('spotify');
         if (null === $refreshToken) throw new \RuntimeException('Spotify is not connected.');
@@ -69,7 +97,9 @@ final readonly class SpotifyClient
 
         if (isset($data['refresh_token'])) $this->tokens->put('spotify', (string) $data['refresh_token']);
 
-        $response = $this->httpClient->request($method, 'https://api.spotify.com'.$path, ['auth_bearer' => (string) $data['access_token']]);
+        $options = ['auth_bearer' => (string) $data['access_token']];
+        if (null !== $json) $options['json'] = $json;
+        $response = $this->httpClient->request($method, 'https://api.spotify.com'.$path, $options);
         return 204 === $response->getStatusCode() ? [] : $response->toArray(false);
     }
 }
