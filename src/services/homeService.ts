@@ -99,12 +99,17 @@ export interface ApiLight {
   on: boolean
   brightness: number
   status: 'online' | 'offline' | 'updating'
+  capabilities?: { dimming: boolean; colorTemperature: boolean; color: boolean; gradient: boolean }
+  colorTemperature?: number | null
+  colorTemperatureMin?: number | null
+  colorTemperatureMax?: number | null
+  color?: { x: number; y: number } | null
 }
 
 export const realHomeApi = {
   lights: () => api<ApiLight[]>('/api/lights'),
   rooms: () => api<Room[]>('/api/rooms'),
-  updateLight: (id: string, payload: { on?: boolean; brightness?: number }) => api<ApiLight>(`/api/lights/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
+  updateLight: (id: string, payload: { on?: boolean; brightness?: number; colorTemperature?: number; color?: { x: number; y: number } }) => api<ApiLight>(`/api/lights/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   hueStatus: () => api<{ provider: 'hue'; configured: boolean }>('/api/integrations/hue'),
   pairHue: () => api<{ configured: boolean }>('/api/integrations/hue/pair', { method: 'POST' }),
   configureHue: (applicationKey: string) => api<{ configured: boolean }>('/api/integrations/hue', { method: 'PUT', body: JSON.stringify({ applicationKey }) }),
