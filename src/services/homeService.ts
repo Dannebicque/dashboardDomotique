@@ -52,7 +52,10 @@ export const homeService = {
     try { return mapDashboard(await api<DashboardApiResponse>('/api/dashboard')) }
     catch { return structuredClone({ indoor, outdoor, upstairs, weather, spotify, rooms }) }
   },
-  async getRooms(): Promise<Room[]> { return structuredClone(rooms) },
+  async getRooms(): Promise<Room[]> {
+    try { return await api<Room[]>('/api/rooms') }
+    catch { return structuredClone(rooms) }
+  },
 }
 
 export interface ApiLight {
@@ -65,9 +68,11 @@ export interface ApiLight {
 
 export const realHomeApi = {
   lights: () => api<ApiLight[]>('/api/lights'),
+  rooms: () => api<Room[]>('/api/rooms'),
   updateLight: (id: string, payload: { on?: boolean; brightness?: number }) => api<ApiLight>(`/api/lights/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   hueStatus: () => api<{ provider: 'hue'; configured: boolean }>('/api/integrations/hue'),
   pairHue: () => api<{ configured: boolean }>('/api/integrations/hue/pair', { method: 'POST' }),
+  configureHue: (applicationKey: string) => api<{ configured: boolean }>('/api/integrations/hue', { method: 'PUT', body: JSON.stringify({ applicationKey }) }),
   disconnectHue: () => api<void>('/api/integrations/hue', { method: 'DELETE' }),
 }
 
@@ -84,6 +89,7 @@ export const settingsApi = {
   connectSpotifyUrl: '/api/integrations/spotify/connect',
   connectNetatmoUrl: '/api/integrations/netatmo/connect',
   pairHue: () => realHomeApi.pairHue(),
+  configureHue: (applicationKey: string) => realHomeApi.configureHue(applicationKey),
   disconnectHue: () => realHomeApi.disconnectHue(),
   disconnectSpotify: () => api<void>('/api/integrations/spotify', { method: 'DELETE' }),
   disconnectNetatmo: () => api<void>('/api/integrations/netatmo', { method: 'DELETE' }),
