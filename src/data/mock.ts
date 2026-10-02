@@ -53,13 +53,13 @@ export const rooms: Room[] = [
     id: 'salon',
     name: 'Salon',
     lights: [
-      { id: 'ceiling', name: 'Plafond', on: true, brightness: 65 },
-      { id: 'floor', name: 'Lampadaire', on: true, brightness: 82 },
-      { id: 'tv', name: 'TV', on: false, brightness: 0 },
+      { id: 'ceiling', name: 'Plafond', on: true, brightness: 65, status: 'online' },
+      { id: 'floor', name: 'Lampadaire', on: true, brightness: 82, status: 'online' },
+      { id: 'tv', name: 'TV', on: false, brightness: 0, status: 'offline' },
     ],
     shutters: [
-      { id: 'bay', name: 'Baie vitrée', position: 35 },
-      { id: 'window', name: 'Fenêtre', position: 0 },
+      { id: 'bay', name: 'Baie vitrée', position: 35, status: 'online' },
+      { id: 'window', name: 'Fenêtre', position: 0, status: 'online' },
     ],
   },
   {
