@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { CloudRain, Droplets, House, Lightbulb, Wind } from 'lucide-vue-next'
 import SpotifyCard from '../components/SpotifyCard.vue'
 import TopBar from '../components/TopBar.vue'
@@ -23,7 +23,24 @@ async function refreshDashboard() {
   dashboard.value = data
   climate.value = climateData.items
 }
-onMounted(refreshDashboard)
+let refreshTimer: number | undefined
+
+function refreshWhenVisible() {
+  if (document.visibilityState === 'visible') void refreshDashboard()
+}
+
+onMounted(() => {
+  void refreshDashboard()
+  refreshTimer = window.setInterval(() => {
+    if (document.visibilityState === 'visible') void refreshDashboard()
+  }, 5 * 60 * 1000)
+  document.addEventListener('visibilitychange', refreshWhenVisible)
+})
+
+onBeforeUnmount(() => {
+  if (refreshTimer !== undefined) window.clearInterval(refreshTimer)
+  document.removeEventListener('visibilitychange', refreshWhenVisible)
+})
 </script>
 
 <template>
