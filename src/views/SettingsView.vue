@@ -1,20 +1,76 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { CloudSun, HousePlug, Music2, Radio, Router, Thermometer, Waves } from 'lucide-vue-next'
 import TopBar from '../components/TopBar.vue'
+import { settingsApi, type IntegrationStatus } from '../services/homeService'
+
+type IntegrationKey = 'hue' | 'tahoma' | 'netatmo' | 'spotify' | 'weather'
 
 const darkMode = ref(true)
 const keepAwake = ref(true)
 const showWeather = ref(true)
 const compactHome = ref(false)
+const loading = ref(true)
+const busy = ref<IntegrationKey | null>(null)
+const error = ref('')
+const statuses = ref<Partial<Record<IntegrationKey, IntegrationStatus>>>({})
 
-const integrations = [
-  { name: 'Philips Hue', detail: 'Éclairage', icon: HousePlug, status: 'Prêt à connecter', connected: false },
-  { name: 'Somfy TaHoma', detail: 'Volets', icon: Waves, status: 'Prêt à connecter', connected: false },
-  { name: 'Netatmo', detail: 'Capteurs', icon: Thermometer, status: 'Données simulées', connected: false },
-  { name: 'Spotify', detail: 'Musique', icon: Music2, status: 'Données simulées', connected: false },
-  { name: 'Météo', detail: 'Prévisions', icon: CloudSun, status: 'Données simulées', connected: false },
+const definitions = [
+  { key: 'hue' as const, name: 'Philips Hue', detail: 'Éclairage', icon: HousePlug },
+  { key: 'tahoma' as const, name: 'Somfy TaHoma', detail: 'Volets', icon: Waves },
+  { key: 'netatmo' as const, name: 'Netatmo', detail: 'Capteurs', icon: Thermometer },
+  { key: 'spotify' as const, name: 'Spotify', detail: 'Musique', icon: Music2 },
+  { key: 'weather' as const, name: 'Météo', detail: 'Prévisions', icon: CloudSun },
 ]
+
+const integrations = computed(() => definitions.map((definition) => {
+  const state = statuses.value[definition.key]
+  const connected = state?.configured ?? false
+  return {
+    ...definition,
+    connected,
+    status: loading.value ? 'Vérification…'
+      : definition.key === 'tahoma' && state?.status === 'pending' ? 'Bientôt configurable'
+      : connected ? 'Connecté' : definition.key === 'weather' ? 'À renseigner sur le serveur' : 'À connecter',
+  }
+}))
+
+async function refresh() {
+  loading.value = true
+  error.value = ''
+  try {
+    statuses.value = await settingsApi.integrations()
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'API indisponible'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function configure(key: IntegrationKey) {
+  error.value = ''
+  if (key === 'spotify') {
+    window.location.href = settingsApi.connectSpotifyUrl
+    return
+  }
+  if (key === 'netatmo') {
+    window.location.href = settingsApi.connectNetatmoUrl
+    return
+  }
+  if (key === 'hue') {
+    busy.value = key
+    try {
+      await settingsApi.pairHue()
+      await refresh()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Association Hue impossible'
+    } finally {
+      busy.value = null
+    }
+  }
+}
+
+onMounted(refresh)
 </script>
 
 <template>
@@ -25,15 +81,23 @@ const integrations = [
       <div class="hero-summary"><Router :size="21" /> Configuration locale</div>
     </section>
 
+    <p v-if="error" class="settings-error">{{ error }}</p>
+
     <section class="settings-layout">
       <div>
         <div class="section-title"><div><div class="card-eyebrow">Services</div><h2>Intégrations</h2></div></div>
         <div class="integration-list">
-          <article v-for="integration in integrations" :key="integration.name" class="integration-card">
+          <article v-for="integration in integrations" :key="integration.key" class="integration-card">
             <div class="integration-icon"><component :is="integration.icon" :size="23" /></div>
             <div class="integration-info"><strong>{{ integration.name }}</strong><span>{{ integration.detail }}</span></div>
             <div class="integration-status"><span :class="{ connected: integration.connected }"></span>{{ integration.status }}</div>
-            <button class="secondary-button">Configurer</button>
+            <button
+              class="secondary-button"
+              :disabled="integration.key === 'weather' || integration.key === 'tahoma' || busy === integration.key"
+              @click="configure(integration.key)"
+            >
+              {{ integration.connected ? 'Reconnecter' : 'Configurer' }}
+            </button>
           </article>
         </div>
       </div>
@@ -48,8 +112,8 @@ const integrations = [
         </article>
         <article class="panel network-card">
           <div class="card-eyebrow">Système</div><h2>Dashboard local</h2>
-          <p>Version MVP · données simulées</p>
-          <div class="network-state"><span></span> Interface opérationnelle</div>
+          <p>API locale · intégrations persistantes</p>
+          <div class="network-state"><span></span> {{ error ? 'API à vérifier' : 'Interface opérationnelle' }}</div>
         </article>
       </aside>
     </section>
