@@ -2,29 +2,24 @@
 
 namespace App\Infrastructure\OAuth;
 
+use App\Infrastructure\Integration\CredentialStore;
+
 final readonly class RefreshTokenStore
 {
-    public function __construct(private string $projectDir) {}
+    public function __construct(private CredentialStore $credentials) {}
 
     public function get(string $provider): ?string
     {
-        $file = $this->filename($provider);
-        if (!is_file($file)) return null;
-        $value = trim((string) file_get_contents($file));
-        return '' === $value ? null : $value;
+        return $this->credentials->get($provider, 'refresh_token');
     }
 
     public function put(string $provider, string $token): void
     {
-        $dir = $this->projectDir.'/var/oauth';
-        if (!is_dir($dir)) mkdir($dir, 0700, true);
-        file_put_contents($this->filename($provider), $token, LOCK_EX);
-        @chmod($this->filename($provider), 0600);
+        $this->credentials->put($provider, 'refresh_token', $token);
     }
 
-    private function filename(string $provider): string
+    public function remove(string $provider): void
     {
-        if (!preg_match('/^[a-z0-9_-]+$/', $provider)) throw new \InvalidArgumentException('Invalid OAuth provider.');
-        return $this->projectDir.'/var/oauth/'.$provider.'.refresh_token';
+        $this->credentials->remove($provider);
     }
 }
