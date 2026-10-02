@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { ChevronDown, ChevronUp, Lightbulb, Square } from 'lucide-vue-next'
+import { Blinds, ChevronDown, ChevronUp, Lightbulb, Square } from 'lucide-vue-next'
 import SceneQuickActions from '../components/SceneQuickActions.vue'
 import TopBar from '../components/TopBar.vue'
 import { homeService, realHomeApi } from '../services/homeService'
@@ -13,6 +13,7 @@ const loading = ref(true)
 const error = ref('')
 const scenes = ref<HueScene[]>([])
 const sceneLoadingId = ref('')
+const controlPanel = ref<'lights' | 'shutters'>('lights')
 const lastRecalledSceneId = ref<string | null>(null)
 
 const demoShutters = ref([
@@ -199,7 +200,20 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
         </div>
       </div>
 
-      <div>
+      <nav class="device-menu" aria-label="Type d’équipement">
+        <button type="button" :class="{ 'is-active': controlPanel === 'lights' }" @click="controlPanel = 'lights'">
+          <Lightbulb :size="17" />
+          <span>Éclairage</span>
+          <small>{{ room.lights.filter((light) => light.on).length }}/{{ room.lights.length }}</small>
+        </button>
+        <button type="button" :class="{ 'is-active': controlPanel === 'shutters' }" @click="controlPanel = 'shutters'">
+          <Blinds :size="17" />
+          <span>Volets</span>
+          <small>{{ room.shutters.length || displayedShutters.length }}</small>
+        </button>
+      </nav>
+
+      <div v-if="controlPanel === 'lights'">
         <div class="section-title">
           <div>
             <div class="card-eyebrow">{{ room.name }}</div>
@@ -268,7 +282,7 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
         </div>
       </div>
 
-      <div>
+      <div v-if="controlPanel === 'shutters'">
         <div class="section-title">
           <div>
             <div class="card-eyebrow">{{ room.shutters.length ? room.name : 'Prévisualisation' }}</div>
@@ -302,5 +316,6 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
 </template>
 
 <style scoped>
+.device-menu{display:grid;grid-template-columns:1fr 1fr;gap:7px;width:100%;margin:2px 0 12px;padding:4px;border:1px solid rgba(127,127,127,.14);border-radius:14px;background:rgba(127,127,127,.05)}.device-menu button{display:flex;align-items:center;justify-content:center;gap:7px;min-height:38px;padding:7px 12px;border:0;border-radius:10px;background:transparent;font:inherit;cursor:pointer;opacity:.62}.device-menu button.is-active{background:rgba(127,127,127,.14);box-shadow:0 2px 8px rgba(0,0,0,.06);opacity:1;font-weight:700}.device-menu small{font-size:.68rem;opacity:.65}
 .device-slider--temperature small{font-size:.68rem;opacity:.7;white-space:nowrap}.light-color-control{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}.light-color-control label{display:flex;align-items:center;gap:8px;font-size:.72rem;opacity:.9}.light-color-control input[type="color"]{width:42px;height:30px;padding:2px;border:1px solid rgba(127,127,127,.25);border-radius:8px;background:transparent}.capability-badge{border:1px solid rgba(127,127,127,.22);background:rgba(127,127,127,.08);border-radius:999px;padding:5px 9px;font-size:.7rem;opacity:.65}.room-scenes{min-width:0;max-width:100%;margin-bottom:12px}.scene-section-title{margin-bottom:7px}.scene-heading{display:flex;align-items:baseline;gap:8px}.scene-heading .card-eyebrow{margin:0}.scene-heading h2{font-size:1rem;margin:0}.scene-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:6px;width:100%;max-width:100%;min-width:0;padding:2px 0 4px;overflow:hidden}.scene-button{display:flex;min-width:0;align-items:center;justify-content:space-between;gap:5px;min-height:34px;padding:6px 9px;border:1px solid rgba(127,127,127,.18);border-radius:13px;background:rgba(127,127,127,.07);text-align:left}.scene-button span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:650;font-size:.74rem}.scene-button small{font-size:.68rem;opacity:.8}.scene-button.is-active{border-color:currentColor;background:rgba(127,127,127,.16);box-shadow:inset 0 0 0 2px currentColor,0 5px 16px rgba(0,0,0,.08);transform:translateY(-1px)}.scene-button.is-active span{font-weight:800}.scene-button.is-active small{opacity:1;font-weight:700}.active-scene-summary{display:flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;background:rgba(127,127,127,.1);font-size:.74rem}.active-scene-dot{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 0 4px rgba(127,127,127,.12)}.demo-note{margin:-5px 0 12px;font-size:.76rem;opacity:.65}.scene-button:not(:disabled){cursor:pointer}.scene-button:disabled{opacity:.55}
 </style>
