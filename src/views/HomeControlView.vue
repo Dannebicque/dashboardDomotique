@@ -4,20 +4,26 @@ import { ChevronDown, ChevronUp, Lightbulb, Square } from 'lucide-vue-next'
 import SceneQuickActions from '../components/SceneQuickActions.vue'
 import TopBar from '../components/TopBar.vue'
 import { homeService, realHomeApi } from '../services/homeService'
+import type { HueScene } from '../services/homeService'
 import type { Light, Room } from '../types/home'
 
 const rooms = ref<Room[]>([])
 const selectedRoomId = ref('')
 const loading = ref(true)
 const error = ref('')
+const scenes = ref<HueScene[]>([])
+const sceneLoadingId = ref('')
 
 const room = computed(() => rooms.value.find((item) => item.id === selectedRoomId.value) ?? rooms.value[0])
 const totalLightsOn = computed(() => rooms.value.flatMap((item) => item.lights).filter((light) => light.on).length)
 const totalShuttersOpen = computed(() => rooms.value.flatMap((item) => item.shutters).filter((shutter) => shutter.position > 0).length)
+const roomScenes = computed(() => scenes.value.filter((scene) => scene.roomId === room.value?.id))
 
 onMounted(async () => {
   try {
-    rooms.value = await homeService.getRooms()
+    const [loadedRooms, loadedScenes] = await Promise.all([homeService.getRooms(), realHomeApi.scenes()])
+    rooms.value = loadedRooms
+    scenes.value = loadedScenes
     selectedRoomId.value = rooms.value[0]?.id ?? ''
   } catch {
     error.value = 'Impossible de charger les équipements de la maison.'
@@ -28,12 +34,16 @@ onMounted(async () => {
 
 type LightUpdate = { on?: boolean; brightness?: number; colorTemperature?: number; color?: { x: number; y: number } }
 
-const colorPresets = [
-  { name: 'Chaud', x: 0.526, y: 0.413 },
-  { name: 'Rose', x: 0.45, y: 0.24 },
-  { name: 'Bleu', x: 0.17, y: 0.12 },
-  { name: 'Vert', x: 0.21, y: 0.71 },
-]
+function hexToXy(hex: string): { x: number; y: number } {
+  const value = hex.replace('#', '')
+  const srgb = [0, 2, 4].map((offset) => parseInt(value.slice(offset, offset + 2), 16) / 255)
+  const [r, g, b] = srgb.map((channel) => channel > 0.04045 ? Math.pow((channel + 0.055) / 1.055, 2.4) : channel / 12.92)
+  const X = r * 0.664511 + g * 0.154324 + b * 0.162028
+  const Y = r * 0.283881 + g * 0.668433 + b * 0.047685
+  const Z = r * 0.000088 + g * 0.072310 + b * 0.986039
+  const total = X + Y + Z
+  return total === 0 ? { x: 0.3227, y: 0.329 } : { x: X / total, y: Y / total }
+}
 
 async function updateLight(light: Light, payload: LightUpdate) {
   const previous = { on: light.on, brightness: light.brightness, status: light.status }
@@ -74,9 +84,26 @@ function changeColorTemperature(light: Light) {
   void updateLight(light, { colorTemperature: light.colorTemperature })
 }
 
-function setColor(light: Light, x: number, y: number) {
+function setColor(light: Light, event: Event) {
   if (!light.on || light.status === 'offline' || light.status === 'updating') return
-  void updateLight(light, { color: { x, y } })
+  const input = event.target as HTMLInputElement
+  void updateLight(light, { color: hexToXy(input.value) })
+}
+
+async function recallScene(scene: HueScene) {
+  if (sceneLoadingId.value) return
+  sceneLoadingId.value = scene.id
+  error.value = ''
+  try {
+    await realHomeApi.recallScene(scene.id)
+    await new Promise((resolve) => window.setTimeout(resolve, 250))
+    rooms.value = await realHomeApi.rooms()
+    scenes.value = await realHomeApi.scenes()
+  } catch {
+    error.value = `Impossible d’activer la scène « ${scene.name} ».`
+  } finally {
+    sceneLoadingId.value = ''
+  }
 }
 
 function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
@@ -128,6 +155,29 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
     </div>
 
     <section v-if="room && !loading" class="control-sections">
+      <div v-if="roomScenes.length" class="room-scenes">
+        <div class="section-title">
+          <div>
+            <div class="card-eyebrow">{{ room.name }}</div>
+            <h2>Scènes Hue</h2>
+          </div>
+        </div>
+        <div class="scene-grid">
+          <button
+            v-for="scene in roomScenes"
+            :key="scene.id"
+            type="button"
+            class="scene-button"
+            :class="{ 'is-active': scene.status === 'static' || scene.status === 'dynamic_palette' }"
+            :disabled="Boolean(sceneLoadingId)"
+            @click="recallScene(scene)"
+          >
+            <span>{{ scene.name }}</span>
+            <small>{{ sceneLoadingId === scene.id ? 'Activation…' : scene.status === 'inactive' ? 'Activer' : 'Active' }}</small>
+          </button>
+        </div>
+      </div>
+
       <div>
         <div class="section-title">
           <div>
@@ -180,16 +230,17 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
               <small>Chaud</small>
             </div>
 
-            <div v-if="light.capabilities?.color" class="light-color-presets" aria-label="Ambiances colorées">
-              <button
-                v-for="preset in colorPresets"
-                :key="preset.name"
-                type="button"
-                :disabled="!light.on || light.status === 'offline' || light.status === 'updating'"
-                @click="setColor(light, preset.x, preset.y)"
-              >
-                {{ preset.name }}
-              </button>
+            <div v-if="light.capabilities?.color" class="light-color-control">
+              <label>
+                <span>Couleur</span>
+                <input
+                  type="color"
+                  value="#ffb45c"
+                  :disabled="!light.on || light.status === 'offline' || light.status === 'updating'"
+                  :aria-label="`Couleur de ${light.name}`"
+                  @change="setColor(light, $event)"
+                >
+              </label>
               <span v-if="light.capabilities.gradient" class="capability-badge">Gradient</span>
             </div>
           </article>
@@ -229,5 +280,5 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
 </template>
 
 <style scoped>
-.device-slider--temperature small{font-size:.68rem;opacity:.7;white-space:nowrap}.light-color-presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.light-color-presets button,.capability-badge{border:1px solid rgba(127,127,127,.22);background:rgba(127,127,127,.08);border-radius:999px;padding:5px 9px;font-size:.7rem}.light-color-presets button:not(:disabled){cursor:pointer}.light-color-presets button:disabled{opacity:.4}.capability-badge{opacity:.65}
+.device-slider--temperature small{font-size:.68rem;opacity:.7;white-space:nowrap}.light-color-control{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}.light-color-control label{display:flex;align-items:center;gap:8px;font-size:.72rem;opacity:.9}.light-color-control input[type="color"]{width:42px;height:30px;padding:2px;border:1px solid rgba(127,127,127,.25);border-radius:8px;background:transparent}.capability-badge{border:1px solid rgba(127,127,127,.22);background:rgba(127,127,127,.08);border-radius:999px;padding:5px 9px;font-size:.7rem;opacity:.65}.room-scenes{margin-bottom:18px}.scene-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:9px}.scene-button{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-height:58px;padding:11px 13px;border:1px solid rgba(127,127,127,.18);border-radius:13px;background:rgba(127,127,127,.07);text-align:left}.scene-button span{font-weight:650}.scene-button small{font-size:.68rem;opacity:.65}.scene-button.is-active{box-shadow:inset 0 0 0 1px currentColor}.scene-button:not(:disabled){cursor:pointer}.scene-button:disabled{opacity:.55}
 </style>
