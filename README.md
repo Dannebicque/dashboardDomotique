@@ -58,3 +58,27 @@ Les données simulées sont centralisées dans `src/data/mock.ts` afin de pouvoi
 7. météo.
 8. synchronisation temps réel SSE/Mercure.
 9. scènes domotiques.
+
+
+## API locale
+
+Le backend se trouve dans `api/` et utilise Symfony 8.1 / PHP 8.4.
+
+```bash
+cd api
+composer install
+symfony server:start
+```
+
+Le serveur Vite proxifie automatiquement `/api` vers `http://127.0.0.1:8000` en développement.
+
+### Philips Hue
+
+1. Renseigner l'URL locale du bridge dans `api/.env.local`, par exemple `HUE_BRIDGE_URL=https://192.168.1.20`.
+2. Appuyer sur le bouton physique du bridge.
+3. Dans les 30 secondes, appeler `POST /api/integrations/hue/pair`.
+4. Copier la valeur `applicationKey` retournée dans `HUE_APPLICATION_KEY` de `api/.env.local`.
+5. `GET /api/lights` retourne alors les lampes Hue réelles.
+6. `PUT /api/lights/{id}` avec `{"on":true,"brightness":60}` commande une lampe.
+
+Le certificat local du bridge Hue étant auto-signé, le client HTTP désactive actuellement sa vérification TLS uniquement pour cette connexion locale.
