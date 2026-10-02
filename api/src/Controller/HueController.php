@@ -64,14 +64,14 @@ final readonly class HueController
             echo ": connected\n\n";
             flush();
 
-            foreach ($this->hue->events() as $payload) {
+            $this->hue->streamEvents(static function (string $chunk): void {
                 if (connection_aborted()) {
-                    break;
+                    return;
                 }
 
-                echo 'data: '.$payload."\n\n";
+                echo $chunk;
                 flush();
-            }
+            });
         });
 
         $response->headers->set('Content-Type', 'text/event-stream');
