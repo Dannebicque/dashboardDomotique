@@ -10,9 +10,28 @@ export interface DashboardData {
   rooms: Room[]
 }
 
+export interface ClimateSensor {
+  id: string
+  name: string
+  kind: 'indoor' | 'outdoor'
+  moduleType: string
+  reachable: boolean
+  lastSeen: number | null
+  batteryPercent: number | null
+  temperature: number
+  humidity: number | null
+  co2: number | null
+  noise: number | null
+  pressure: number | null
+  temperatureTrend: string | null
+  pressureTrend: string | null
+  minTemperature: number | null
+  maxTemperature: number | null
+}
+
 interface DashboardApiResponse {
   weather: { available: boolean; temperature?: number; apparentTemperature?: number; min?: number; max?: number; rainProbability?: number; hourly?: Array<{ time: string; temperature: number; rainProbability: number }> }
-  sensors: { available: boolean; items?: Array<{ id: string; name: string; kind: 'indoor' | 'outdoor'; temperature: number; humidity: number | null; co2: number | null; pressure: number | null }> }
+  sensors: { available: boolean; items?: ClimateSensor[] }
   spotify: { available: boolean; isPlaying?: boolean; device?: { name: string; type: string; volumePercent: number | null } | null; track?: { title: string; artist: string; album: string; coverUrl: string; progressMs: number; durationMs: number } | null }
 }
 
@@ -26,8 +45,8 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
 function mapDashboard(raw: DashboardApiResponse): DashboardData {
   const indoorSensors = raw.sensors.available ? raw.sensors.items?.filter((sensor) => sensor.kind === 'indoor') ?? [] : []
   const outdoorSensor = raw.sensors.available ? raw.sensors.items?.find((sensor) => sensor.kind === 'outdoor') : undefined
-  const mainIndoor = indoorSensors[0]
-  const floorSensor = indoorSensors[1]
+  const mainIndoor = indoorSensors.find((sensor) => sensor.name.toLowerCase() === 'salon') ?? indoorSensors[0]
+  const floorSensor = indoorSensors.find((sensor) => sensor.name.toLowerCase().includes('etage') || sensor.name.toLowerCase().includes('étage')) ?? indoorSensors.find((sensor) => sensor.id !== mainIndoor?.id)
 
   return {
     indoor: mainIndoor ? { room: mainIndoor.name, temperature: mainIndoor.temperature, humidity: mainIndoor.humidity ?? indoor.humidity, co2: mainIndoor.co2 ?? undefined, pressure: mainIndoor.pressure ?? undefined, status: 'good' } : structuredClone(indoor),
@@ -53,6 +72,14 @@ export const homeService = {
   async getDashboard(): Promise<DashboardData> {
     try { return mapDashboard(await api<DashboardApiResponse>('/api/dashboard')) }
     catch { return structuredClone({ indoor, outdoor, upstairs, weather, spotify, rooms }) }
+  },
+  async getClimate(): Promise<{ available: boolean; items: ClimateSensor[] }> {
+    try {
+      const raw = await api<DashboardApiResponse>('/api/dashboard')
+      return { available: raw.sensors.available, items: raw.sensors.items ?? [] }
+    } catch {
+      return { available: false, items: [] }
+    }
   },
   async getRooms(): Promise<Room[]> {
     try { return await api<Room[]>('/api/rooms') }
