@@ -116,6 +116,11 @@ export interface HueScene {
 export const realHomeApi = {
   lights: () => api<ApiLight[]>('/api/lights'),
   rooms: () => api<Room[]>('/api/rooms'),
+  hueEvents: (onChange: () => void) => {
+    const source = new EventSource('/api/integrations/hue/events')
+    source.onmessage = () => onChange()
+    return source
+  },
   scenes: () => api<HueScene[]>('/api/integrations/hue/scenes'),
   recallScene: (id: string) => api<void>(`/api/integrations/hue/scenes/${id}/recall`, { method: 'POST' }),
   updateLight: (id: string, payload: { on?: boolean; brightness?: number; colorTemperature?: number; color?: { x: number; y: number } }) => api<ApiLight>(`/api/lights/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
