@@ -48,6 +48,19 @@ final readonly class HueRoomProvider
                     'on' => (bool) ($light['on']['on'] ?? false),
                     'brightness' => (int) round((float) ($light['dimming']['brightness'] ?? 0)),
                     'status' => 'online',
+                    'capabilities' => [
+                        'dimming' => isset($light['dimming']),
+                        'colorTemperature' => isset($light['color_temperature']),
+                        'color' => isset($light['color']),
+                        'gradient' => isset($light['gradient']),
+                    ],
+                    'colorTemperature' => isset($light['color_temperature']['mirek']) ? (int) $light['color_temperature']['mirek'] : null,
+                    'colorTemperatureMin' => isset($light['color_temperature']['mirek_schema']['mirek_minimum']) ? (int) $light['color_temperature']['mirek_schema']['mirek_minimum'] : null,
+                    'colorTemperatureMax' => isset($light['color_temperature']['mirek_schema']['mirek_maximum']) ? (int) $light['color_temperature']['mirek_schema']['mirek_maximum'] : null,
+                    'color' => isset($light['color']['xy']['x'], $light['color']['xy']['y']) ? [
+                        'x' => (float) $light['color']['xy']['x'],
+                        'y' => (float) $light['color']['xy']['y'],
+                    ] : null,
                 ];
             }
         }
