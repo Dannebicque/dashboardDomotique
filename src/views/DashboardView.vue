@@ -4,14 +4,14 @@ import MetricCard from '../components/MetricCard.vue'
 import SceneQuickActions from '../components/SceneQuickActions.vue'
 import SpotifyCard from '../components/SpotifyCard.vue'
 import TopBar from '../components/TopBar.vue'
-import { indoor, outdoor, rooms, spotify, weather } from '../data/mock'
+import { indoor, outdoor, rooms, spotify, upstairs, weather } from '../data/mock'
 
 const lightsOn = rooms.flatMap((room) => room.lights).filter((light) => light.on).length
 const shuttersOpen = rooms.flatMap((room) => room.shutters).filter((shutter) => shutter.position > 0).length
 </script>
 
 <template>
-  <div class="page">
+  <div class="page dashboard-page">
     <TopBar />
 
     <section class="hero">
@@ -56,7 +56,7 @@ const shuttersOpen = rooms.flatMap((room) => room.shutters).filter((shutter) => 
           eyebrow="Salon · Netatmo"
           :value="`${indoor.temperature}°`"
           label="Température intérieure"
-          :meta="`${indoor.humidity}% d’humidité`"
+          :meta="`${indoor.humidity}% humidité · Étage ${upstairs.temperature}°`"
           tone="success"
         />
         <MetricCard
