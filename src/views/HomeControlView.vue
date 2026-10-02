@@ -24,7 +24,10 @@ const demoShutters = ref([
 const room = computed(() => rooms.value.find((item) => item.id === selectedRoomId.value) ?? rooms.value[0])
 const totalLightsOn = computed(() => rooms.value.flatMap((item) => item.lights).filter((light) => light.on).length)
 const totalShuttersOpen = computed(() => rooms.value.flatMap((item) => item.shutters).filter((shutter) => shutter.position > 0).length)
-const roomScenes = computed(() => scenes.value.filter((scene) => scene.roomId === room.value?.id))
+const roomScenes = computed(() => {
+  const hueRoomIds = room.value?.hueRoomIds ?? [room.value?.id].filter((id): id is string => Boolean(id))
+  return scenes.value.filter((scene) => scene.roomId !== null && hueRoomIds.includes(scene.roomId))
+})
 const activeRoomScene = computed(() => roomScenes.value.find((scene) => scene.status !== 'inactive') ?? roomScenes.value.find((scene) => scene.id === lastRecalledSceneId.value) ?? null)
 const displayedShutters = computed(() => room.value?.shutters.length ? room.value.shutters : demoShutters.value)
 
@@ -108,8 +111,10 @@ async function recallScene(scene: HueScene) {
     await realHomeApi.recallScene(scene.id)
     lastRecalledSceneId.value = scene.id
     await new Promise((resolve) => window.setTimeout(resolve, 250))
+    const selectedZone = selectedRoomId.value
     rooms.value = await realHomeApi.rooms()
     scenes.value = await realHomeApi.scenes()
+    selectedRoomId.value = rooms.value.some((item) => item.id === selectedZone) ? selectedZone : (rooms.value[0]?.id ?? '')
   } catch {
     error.value = `Impossible d’activer la scène « ${scene.name} ».`
   } finally {
