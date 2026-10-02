@@ -39,64 +39,46 @@ final readonly class HueClient
     }
 
     /**
-     * Opens the Hue v2 event stream and yields each SSE data payload.
+     * Proxies the Hue v2 event stream directly to the current HTTP response.
      *
-     * @return \Generator<string>
+     * Native cURL is intentional here: this is an indefinitely-lived SSE
+     * connection, unlike the short JSON requests handled by HttpClient.
      */
-    public function events(): \Generator
+    public function streamEvents(callable $write): void
     {
         $key = $this->credentials->get('hue', 'application_key');
         if ('' === trim($this->bridgeUrl) || null === $key) {
             throw new \RuntimeException('Philips Hue is not configured.');
         }
-
-        $options = [
-            'headers' => [
-                'hue-application-key' => $key,
-                'Accept' => 'text/event-stream',
-            ],
-            'verify_peer' => false,
-            'verify_host' => false,
-            'timeout' => 0,
-            'max_duration' => 0,
-        ];
-        if (defined('CURLOPT_IPRESOLVE') && defined('CURL_IPRESOLVE_V4')) {
-            $options['extra']['curl'][CURLOPT_IPRESOLVE] = CURL_IPRESOLVE_V4;
+        if (!function_exists('curl_init')) {
+            throw new \RuntimeException('The cURL PHP extension is required for Hue events.');
         }
 
-        $response = $this->httpClient->request(
-            'GET',
-            rtrim($this->bridgeUrl, '/').'/eventstream/clip/v2',
-            $options,
-        );
+        $curl = curl_init(rtrim($this->bridgeUrl, '/').'/eventstream/clip/v2');
+        curl_setopt_array($curl, [
+            CURLOPT_HTTPHEADER => [
+                'hue-application-key: '.$key,
+                'Accept: text/event-stream',
+            ],
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => false,
+            CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_WRITEFUNCTION => static function ($handle, string $data) use ($write): int {
+                $write($data);
 
-        $buffer = '';
-        foreach ($this->httpClient->stream($response) as $chunk) {
-            if ($chunk->isTimeout()) {
-                continue;
+                return strlen($data);
+            },
+        ]);
+
+        try {
+            $ok = curl_exec($curl);
+            if (false === $ok && CURLE_WRITE_ERROR !== curl_errno($curl)) {
+                throw new \RuntimeException('Hue event stream error: '.curl_error($curl));
             }
-
-            $buffer .= $chunk->getContent();
-
-            // Normalize CRLF used by the Hue bridge so SSE frames are always
-            // separated by a simple blank line.
-            $buffer = str_replace("\r\n", "\n", $buffer);
-
-            while (false !== ($separator = strpos($buffer, "\n\n"))) {
-                $event = substr($buffer, 0, $separator);
-                $buffer = substr($buffer, $separator + 2);
-
-                $data = [];
-                foreach (explode("\n", $event) as $line) {
-                    if (str_starts_with($line, 'data:')) {
-                        $data[] = ltrim(substr($line, 5));
-                    }
-                }
-
-                if ([] !== $data) {
-                    yield implode("\n", $data);
-                }
-            }
+        } finally {
+            curl_close($curl);
         }
     }
 
