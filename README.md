@@ -1,84 +1,121 @@
 # Dashboard Domotique
 
-MVP d'interface tablette pour consulter et piloter une maison connectée.
+Interface tablette Vue 3 + backend Symfony pour consulter et piloter la maison connectée.
 
-## MVP
+## Architecture
 
-- dashboard 9–10 pouces en mode paysage ;
-- données Netatmo simulées ;
-- météo simulée ;
-- lecture Spotify simulée ;
-- état des lumières et volets ;
-- page de contrôle par pièce ;
-- interactions locales Hue/Somfy simulées.
+En développement :
 
-## Stack
+```text
+Vue / Vite :5173
+      |
+      | /api (proxy Vite)
+      v
+Symfony :8000
+```
 
-Vue 3, TypeScript, Vite, Vue Router et Lucide.
+En production, le projet est prévu pour tourner sur une machine ARM64 du réseau domestique (Raspberry Pi ou mini-PC) :
 
-## Démarrage
+```text
+Tablette / PWA
+      |
+      v
+Nginx :8080
+   |       |
+   |       +-- Vue compilé
+   |
+   +---------- /api -> PHP-FPM / Symfony
+                         |
+              +----------+----------+
+              |                     |
+          Hue / TaHoma        APIs Internet
+            locales          Spotify / Netatmo
+```
+
+Hue et TaHoma restent accessibles localement. Spotify, Netatmo et la météo utilisent l'accès Internet sortant du serveur.
+
+## Développement
+
+Front :
 
 ```bash
 npm install
 npm run dev
 ```
 
-Vérification :
+API :
+
+```bash
+cd api
+composer install
+symfony serve
+```
+
+Vite proxifie `/api` vers `http://127.0.0.1:8000`.
+
+Vérifications front :
 
 ```bash
 npm run typecheck
 npm run build
 ```
 
-## Architecture cible
+## Configuration
 
-Le front ne dialoguera pas directement avec chaque fournisseur. Un backend Symfony servira d'agrégateur et exposera un modèle métier indépendant des marques.
+Copier les variables nécessaires depuis `api/.env.example` vers `api/.env.local`.
 
-```text
-Tablette Vue
-    |
-Symfony / API
-    |-- Philips Hue
-    |-- Somfy TaHoma
-    |-- Netatmo
-    |-- Spotify
-    `-- météo
-```
+Les secrets applicatifs (client ID / client secret, URLs de callback) restent dans `.env.local`. Les credentials obtenus dynamiquement (refresh tokens Spotify/Netatmo, application key Hue, token TaHoma) sont stockés par Symfony dans `api/var/integrations`.
 
-Les données simulées sont centralisées dans `src/data/mock.ts` afin de pouvoir les remplacer progressivement par l'API.
+## Déploiement Raspberry / mini-PC
 
-## Suite
+Docker construit deux images multi-stage compatibles ARM64 :
 
-1. PWA / mode kiosque.
-2. Backend Symfony.
-3. Adapter Philips Hue.
-4. Adapter Somfy TaHoma.
-5. Netatmo.
-6. Spotify.
-7. météo.
-8. synchronisation temps réel SSE/Mercure.
-9. scènes domotiques.
+- `web` : Nginx + build statique Vue ;
+- `php` : PHP-FPM 8.4 + Symfony.
 
-
-## API locale
-
-Le backend se trouve dans `api/` et utilise Symfony 8.1 / PHP 8.4.
+Sur le Raspberry :
 
 ```bash
-cd api
-composer install
-symfony server:start
+git clone <repository>
+cd dashboardDomotique
+cp api/.env.example api/.env.local
+# compléter api/.env.local
+docker compose up -d --build
 ```
 
-Le serveur Vite proxifie automatiquement `/api` vers `http://127.0.0.1:8000` en développement.
+Le dashboard est alors disponible sur le port `8080` du Raspberry. Pour changer le port :
+
+```bash
+DASHBOARD_PORT=80 docker compose up -d
+```
+
+Le volume Docker `integrations` conserve les credentials obtenus par les intégrations entre les rebuilds.
+
+## Intégrations
 
 ### Philips Hue
 
-1. Renseigner l'URL locale du bridge dans `api/.env.local`, par exemple `HUE_BRIDGE_URL=https://192.168.1.20`.
-2. Appuyer sur le bouton physique du bridge.
-3. Dans les 30 secondes, appeler `POST /api/integrations/hue/pair`.
-4. Copier la valeur `applicationKey` retournée dans `HUE_APPLICATION_KEY` de `api/.env.local`.
-5. `GET /api/lights` retourne alors les lampes Hue réelles.
-6. `PUT /api/lights/{id}` avec `{"on":true,"brightness":60}` commande une lampe.
+Le backend utilise l'API Hue v2 locale. `HUE_BRIDGE_URL` doit pointer vers le bridge du réseau domestique. L'application key obtenue lors du pairing est persistée par le backend.
 
-Le certificat local du bridge Hue étant auto-signé, le client HTTP désactive actuellement sa vérification TLS uniquement pour cette connexion locale.
+### Somfy TaHoma
+
+`TAHOMA_BASE_URL` désigne l'API locale TaHoma. Le mapping des équipements et commandes sera complété à partir du payload réel de l'installation.
+
+### Spotify
+
+Configurer `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` et `SPOTIFY_REDIRECT_URI`. Le backend gère OAuth et persiste le refresh token.
+
+### Netatmo
+
+Configurer `NETATMO_CLIENT_ID`, `NETATMO_CLIENT_SECRET` et `NETATMO_REDIRECT_URI`. Le backend gère OAuth et persiste le refresh token.
+
+## API principale
+
+- `GET /api/dashboard`
+- `GET /api/rooms`
+- `GET /api/lights`
+- `PUT /api/lights/{id}`
+- `GET /api/shutters`
+- `GET /api/integrations`
+
+Le front consomme toujours des URLs relatives `/api/...`, ce qui permet d'utiliser la même origine sur la tablette et évite une configuration CORS spécifique en production.
