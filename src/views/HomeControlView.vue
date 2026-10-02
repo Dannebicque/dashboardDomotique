@@ -172,8 +172,8 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
 
     <section v-if="room && !loading" class="control-sections">
       <div v-if="roomScenes.length" class="room-scenes">
-        <div class="section-title">
-          <div>
+        <div class="section-title scene-section-title">
+          <div class="scene-heading">
             <div class="card-eyebrow">{{ room.name }}</div>
             <h2>Scènes Hue</h2>
           </div>
@@ -193,7 +193,8 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
             @click="recallScene(scene)"
           >
             <span>{{ scene.name }}</span>
-            <small>{{ sceneLoadingId === scene.id ? 'Activation…' : scene.id === activeRoomScene?.id ? '● Active' : 'Activer' }}</small>
+            <small v-if="sceneLoadingId === scene.id">Activation…</small>
+            <small v-else-if="scene.id === activeRoomScene?.id">●</small>
           </button>
         </div>
       </div>
@@ -301,5 +302,5 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
 </template>
 
 <style scoped>
-.device-slider--temperature small{font-size:.68rem;opacity:.7;white-space:nowrap}.light-color-control{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}.light-color-control label{display:flex;align-items:center;gap:8px;font-size:.72rem;opacity:.9}.light-color-control input[type="color"]{width:42px;height:30px;padding:2px;border:1px solid rgba(127,127,127,.25);border-radius:8px;background:transparent}.capability-badge{border:1px solid rgba(127,127,127,.22);background:rgba(127,127,127,.08);border-radius:999px;padding:5px 9px;font-size:.7rem;opacity:.65}.room-scenes{margin-bottom:18px}.scene-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:9px}.scene-button{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-height:58px;padding:11px 13px;border:1px solid rgba(127,127,127,.18);border-radius:13px;background:rgba(127,127,127,.07);text-align:left}.scene-button span{font-weight:650}.scene-button small{font-size:.68rem;opacity:.65}.scene-button.is-active{border-color:currentColor;background:rgba(127,127,127,.16);box-shadow:inset 0 0 0 2px currentColor,0 5px 16px rgba(0,0,0,.08);transform:translateY(-1px)}.scene-button.is-active span{font-weight:800}.scene-button.is-active small{opacity:1;font-weight:700}.active-scene-summary{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;background:rgba(127,127,127,.1);font-size:.74rem}.active-scene-dot{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 0 4px rgba(127,127,127,.12)}.demo-note{margin:-5px 0 12px;font-size:.76rem;opacity:.65}.scene-button:not(:disabled){cursor:pointer}.scene-button:disabled{opacity:.55}
+.device-slider--temperature small{font-size:.68rem;opacity:.7;white-space:nowrap}.light-color-control{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}.light-color-control label{display:flex;align-items:center;gap:8px;font-size:.72rem;opacity:.9}.light-color-control input[type="color"]{width:42px;height:30px;padding:2px;border:1px solid rgba(127,127,127,.25);border-radius:8px;background:transparent}.capability-badge{border:1px solid rgba(127,127,127,.22);background:rgba(127,127,127,.08);border-radius:999px;padding:5px 9px;font-size:.7rem;opacity:.65}.room-scenes{margin-bottom:12px}.scene-section-title{margin-bottom:7px}.scene-heading{display:flex;align-items:baseline;gap:8px}.scene-heading .card-eyebrow{margin:0}.scene-heading h2{font-size:1rem;margin:0}.scene-grid{display:flex;gap:7px;overflow-x:auto;padding:2px 2px 6px;scrollbar-width:thin;overscroll-behavior-x:contain}.scene-button{display:flex;flex:0 0 auto;align-items:center;gap:6px;min-height:36px;padding:7px 11px;border:1px solid rgba(127,127,127,.18);border-radius:13px;background:rgba(127,127,127,.07);text-align:left}.scene-button span{font-weight:650;white-space:nowrap;font-size:.78rem}.scene-button small{font-size:.68rem;opacity:.8}.scene-button.is-active{border-color:currentColor;background:rgba(127,127,127,.16);box-shadow:inset 0 0 0 2px currentColor,0 5px 16px rgba(0,0,0,.08);transform:translateY(-1px)}.scene-button.is-active span{font-weight:800}.scene-button.is-active small{opacity:1;font-weight:700}.active-scene-summary{display:flex;align-items:center;gap:6px;padding:5px 9px;border-radius:999px;background:rgba(127,127,127,.1);font-size:.74rem}.active-scene-dot{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 0 4px rgba(127,127,127,.12)}.demo-note{margin:-5px 0 12px;font-size:.76rem;opacity:.65}.scene-button:not(:disabled){cursor:pointer}.scene-button:disabled{opacity:.55}
 </style>
