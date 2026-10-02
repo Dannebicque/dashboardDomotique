@@ -106,9 +106,18 @@ export interface ApiLight {
   color?: { x: number; y: number } | null
 }
 
+export interface HueScene {
+  id: string
+  name: string
+  roomId: string | null
+  status: string
+}
+
 export const realHomeApi = {
   lights: () => api<ApiLight[]>('/api/lights'),
   rooms: () => api<Room[]>('/api/rooms'),
+  scenes: () => api<HueScene[]>('/api/integrations/hue/scenes'),
+  recallScene: (id: string) => api<void>(`/api/integrations/hue/scenes/${id}/recall`, { method: 'POST' }),
   updateLight: (id: string, payload: { on?: boolean; brightness?: number; colorTemperature?: number; color?: { x: number; y: number } }) => api<ApiLight>(`/api/lights/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   hueStatus: () => api<{ provider: 'hue'; configured: boolean }>('/api/integrations/hue'),
   pairHue: () => api<{ configured: boolean }>('/api/integrations/hue/pair', { method: 'POST' }),
