@@ -85,6 +85,11 @@ final readonly class DashboardProvider
         $item = $player['item'];
         return [
             'available' => true, 'source' => 'spotify', 'isPlaying' => (bool) ($player['is_playing'] ?? false),
+            'device' => isset($player['device']) ? [
+                'name' => (string) ($player['device']['name'] ?? ''),
+                'type' => (string) ($player['device']['type'] ?? ''),
+                'volumePercent' => isset($player['device']['volume_percent']) ? (int) $player['device']['volume_percent'] : null,
+            ] : null,
             'track' => [
                 'title' => (string) ($item['name'] ?? ''), 'artist' => implode(', ', array_column($item['artists'] ?? [], 'name')),
                 'album' => (string) ($item['album']['name'] ?? ''), 'coverUrl' => (string) ($item['album']['images'][0]['url'] ?? ''),
