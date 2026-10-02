@@ -13,11 +13,20 @@ const loading = ref(true)
 const error = ref('')
 const scenes = ref<HueScene[]>([])
 const sceneLoadingId = ref('')
+const lastRecalledSceneId = ref<string | null>(null)
+
+const demoShutters = ref([
+  { id: 'demo-bay', name: 'Baie vitrée', position: 35, status: 'online' as const },
+  { id: 'demo-window', name: 'Fenêtre salon', position: 0, status: 'online' as const },
+  { id: 'demo-kitchen', name: 'Fenêtre cuisine', position: 100, status: 'online' as const },
+])
 
 const room = computed(() => rooms.value.find((item) => item.id === selectedRoomId.value) ?? rooms.value[0])
 const totalLightsOn = computed(() => rooms.value.flatMap((item) => item.lights).filter((light) => light.on).length)
 const totalShuttersOpen = computed(() => rooms.value.flatMap((item) => item.shutters).filter((shutter) => shutter.position > 0).length)
 const roomScenes = computed(() => scenes.value.filter((scene) => scene.roomId === room.value?.id))
+const activeRoomScene = computed(() => roomScenes.value.find((scene) => scene.status !== 'inactive') ?? roomScenes.value.find((scene) => scene.id === lastRecalledSceneId.value) ?? null)
+const displayedShutters = computed(() => room.value?.shutters.length ? room.value.shutters : demoShutters.value)
 
 onMounted(async () => {
   try {
@@ -67,6 +76,7 @@ async function turnAllLightsOff() {
 
 function closeAllShutters() {
   rooms.value.forEach((item) => item.shutters.forEach((shutter) => { if (shutter.status !== 'offline') shutter.position = 0 }))
+  demoShutters.value.forEach((shutter) => { shutter.position = 0 })
 }
 
 function toggleLight(light: Light) {
@@ -96,6 +106,7 @@ async function recallScene(scene: HueScene) {
   error.value = ''
   try {
     await realHomeApi.recallScene(scene.id)
+    lastRecalledSceneId.value = scene.id
     await new Promise((resolve) => window.setTimeout(resolve, 250))
     rooms.value = await realHomeApi.rooms()
     scenes.value = await realHomeApi.scenes()
@@ -107,7 +118,7 @@ async function recallScene(scene: HueScene) {
 }
 
 function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
-  const shutter = room.value?.shutters.find((item) => item.id === id)
+  const shutter = displayedShutters.value.find((item) => item.id === id)
   if (!shutter || shutter.status === 'offline') return
   if (direction === 'up') shutter.position = 100
   if (direction === 'down') shutter.position = 0
@@ -147,9 +158,9 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
           <Lightbulb :size="20" />
           <span><strong>Tout éteindre</strong><small>{{ totalLightsOn }} allumées</small></span>
         </button>
-        <button v-if="rooms.some((item) => item.shutters.length)" type="button" class="global-action" @click="closeAllShutters">
+        <button type="button" class="global-action" @click="closeAllShutters">
           <ChevronDown :size="20" />
-          <span><strong>Fermer les volets</strong><small>{{ totalShuttersOpen }} ouverts</small></span>
+          <span><strong>Fermer les volets</strong><small>{{ rooms.some((item) => item.shutters.length) ? `${totalShuttersOpen} ouverts` : 'Mode démo' }}</small></span>
         </button>
       </div>
     </div>
@@ -161,6 +172,10 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
             <div class="card-eyebrow">{{ room.name }}</div>
             <h2>Scènes Hue</h2>
           </div>
+          <div v-if="activeRoomScene" class="active-scene-summary">
+            <span class="active-scene-dot"></span>
+            <span>Active : <strong>{{ activeRoomScene.name }}</strong></span>
+          </div>
         </div>
         <div class="scene-grid">
           <button
@@ -168,12 +183,12 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
             :key="scene.id"
             type="button"
             class="scene-button"
-            :class="{ 'is-active': scene.status === 'static' || scene.status === 'dynamic_palette' }"
+            :class="{ 'is-active': scene.id === activeRoomScene?.id }"
             :disabled="Boolean(sceneLoadingId)"
             @click="recallScene(scene)"
           >
             <span>{{ scene.name }}</span>
-            <small>{{ sceneLoadingId === scene.id ? 'Activation…' : scene.status === 'inactive' ? 'Activer' : 'Active' }}</small>
+            <small>{{ sceneLoadingId === scene.id ? 'Activation…' : scene.id === activeRoomScene?.id ? '● Active' : 'Activer' }}</small>
           </button>
         </div>
       </div>
@@ -247,16 +262,17 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
         </div>
       </div>
 
-      <div v-if="room.shutters.length">
+      <div>
         <div class="section-title">
           <div>
-            <div class="card-eyebrow">{{ room.name }}</div>
+            <div class="card-eyebrow">{{ room.shutters.length ? room.name : 'Prévisualisation' }}</div>
             <h2>Volets</h2>
           </div>
         </div>
 
+        <p v-if="!room.shutters.length" class="demo-note">Commandes fictives en attendant la connexion Somfy TaHoma.</p>
         <div class="shutter-grid">
-          <article v-for="shutter in room.shutters" :key="shutter.id" class="shutter-card" :class="{ 'is-offline': shutter.status === 'offline' }">
+          <article v-for="shutter in displayedShutters" :key="shutter.id" class="shutter-card" :class="{ 'is-offline': shutter.status === 'offline' }">
             <div class="shutter-top">
               <div>
                 <strong>{{ shutter.name }}</strong>
@@ -280,5 +296,5 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
 </template>
 
 <style scoped>
-.device-slider--temperature small{font-size:.68rem;opacity:.7;white-space:nowrap}.light-color-control{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}.light-color-control label{display:flex;align-items:center;gap:8px;font-size:.72rem;opacity:.9}.light-color-control input[type="color"]{width:42px;height:30px;padding:2px;border:1px solid rgba(127,127,127,.25);border-radius:8px;background:transparent}.capability-badge{border:1px solid rgba(127,127,127,.22);background:rgba(127,127,127,.08);border-radius:999px;padding:5px 9px;font-size:.7rem;opacity:.65}.room-scenes{margin-bottom:18px}.scene-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:9px}.scene-button{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-height:58px;padding:11px 13px;border:1px solid rgba(127,127,127,.18);border-radius:13px;background:rgba(127,127,127,.07);text-align:left}.scene-button span{font-weight:650}.scene-button small{font-size:.68rem;opacity:.65}.scene-button.is-active{box-shadow:inset 0 0 0 1px currentColor}.scene-button:not(:disabled){cursor:pointer}.scene-button:disabled{opacity:.55}
+.device-slider--temperature small{font-size:.68rem;opacity:.7;white-space:nowrap}.light-color-control{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px}.light-color-control label{display:flex;align-items:center;gap:8px;font-size:.72rem;opacity:.9}.light-color-control input[type="color"]{width:42px;height:30px;padding:2px;border:1px solid rgba(127,127,127,.25);border-radius:8px;background:transparent}.capability-badge{border:1px solid rgba(127,127,127,.22);background:rgba(127,127,127,.08);border-radius:999px;padding:5px 9px;font-size:.7rem;opacity:.65}.room-scenes{margin-bottom:18px}.scene-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:9px}.scene-button{display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-height:58px;padding:11px 13px;border:1px solid rgba(127,127,127,.18);border-radius:13px;background:rgba(127,127,127,.07);text-align:left}.scene-button span{font-weight:650}.scene-button small{font-size:.68rem;opacity:.65}.scene-button.is-active{border-color:currentColor;background:rgba(127,127,127,.16);box-shadow:inset 0 0 0 2px currentColor,0 5px 16px rgba(0,0,0,.08);transform:translateY(-1px)}.scene-button.is-active span{font-weight:800}.scene-button.is-active small{opacity:1;font-weight:700}.active-scene-summary{display:flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;background:rgba(127,127,127,.1);font-size:.74rem}.active-scene-dot{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 0 4px rgba(127,127,127,.12)}.demo-note{margin:-5px 0 12px;font-size:.76rem;opacity:.65}.scene-button:not(:disabled){cursor:pointer}.scene-button:disabled{opacity:.55}
 </style>
