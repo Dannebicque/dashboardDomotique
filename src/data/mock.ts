@@ -9,6 +9,13 @@ export const indoor: SensorSnapshot = {
   status: 'excellent',
 }
 
+export const upstairs: SensorSnapshot = {
+  room: 'Étage',
+  temperature: 20.6,
+  humidity: 51,
+  status: 'good',
+}
+
 export const outdoor: SensorSnapshot = {
   room: 'Extérieur',
   temperature: 14.8,
