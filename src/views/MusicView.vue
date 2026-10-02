@@ -1,18 +1,63 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { Airplay, Heart, ListMusic, Pause, Play, Repeat2, Shuffle, SkipBack, SkipForward, Volume2 } from 'lucide-vue-next'
 import TopBar from '../components/TopBar.vue'
-import { spotify } from '../data/mock'
+import { integrationApi, type SpotifyPlayback, type SpotifyTrackApi } from '../services/homeService'
+import { spotify as fallbackSpotify } from '../data/mock'
 
-const isPlaying = ref(spotify.isPlaying)
-const volume = ref(62)
-const progress = computed(() => Math.round((spotify.progressMs / spotify.durationMs) * 100))
+const playback = ref<SpotifyPlayback | null>(null)
+const queue = ref<Array<{ title: string; artist: string; duration: string }>>([])
+const busy = ref(false)
 
-const queue = [
-  { title: 'Selfless', artist: 'The Strokes', duration: '3:42' },
-  { title: 'Brooklyn Bridge to Chorus', artist: 'The Strokes', duration: '3:55' },
-  { title: 'Bad Decisions', artist: 'The Strokes', duration: '4:53' },
-]
+const isPlaying = computed(() => playback.value?.is_playing ?? false)
+const current = computed(() => {
+  const item = playback.value?.item
+  return item ? {
+    title: item.name,
+    artist: item.artists?.map((artist) => artist.name).join(', ') ?? '',
+    album: item.album?.name ?? '',
+    coverUrl: item.album?.images?.[0]?.url ?? fallbackSpotify.coverUrl,
+    durationMs: item.duration_ms,
+  } : fallbackSpotify
+})
+const volume = computed(() => playback.value?.device?.volume_percent ?? 0)
+const progressMs = computed(() => playback.value?.progress_ms ?? 0)
+const progress = computed(() => current.value.durationMs > 0 ? Math.round((progressMs.value / current.value.durationMs) * 100) : 0)
+const deviceName = computed(() => playback.value?.device?.name ?? 'Aucun appareil')
+const deviceType = computed(() => playback.value?.device?.type ?? 'Spotify Connect')
+
+function formatTime(ms: number) {
+  const seconds = Math.floor(ms / 1000)
+  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`
+}
+
+function mapQueue(items: SpotifyTrackApi[] = []) {
+  return items.slice(0, 8).map((item) => ({
+    title: item.name,
+    artist: item.artists?.map((artist) => artist.name).join(', ') ?? '',
+    duration: formatTime(item.duration_ms),
+  }))
+}
+
+async function refresh() {
+  const [status, queueData] = await Promise.all([integrationApi.spotify(), integrationApi.spotifyQueue()])
+  playback.value = status.playback
+  queue.value = mapQueue(queueData.queue)
+}
+
+async function command(action: 'play' | 'pause' | 'next' | 'previous') {
+  if (busy.value) return
+  busy.value = true
+  try {
+    await integrationApi.spotifyCommand(action)
+    await new Promise((resolve) => window.setTimeout(resolve, 650))
+    await refresh()
+  } finally {
+    busy.value = false
+  }
+}
+
+onMounted(refresh)
 </script>
 
 <template>
@@ -20,41 +65,41 @@ const queue = [
     <TopBar />
     <section class="control-heading">
       <div><p class="hero-kicker">Spotify</p><h1>Musique</h1></div>
-      <div class="service-chip">Salon · Apple TV</div>
+      <div class="service-chip">{{ deviceName }}</div>
     </section>
 
     <section class="music-layout">
       <article class="panel music-player">
-        <img :src="spotify.coverUrl" :alt="`Pochette de ${spotify.album}`" class="music-cover">
+        <img :src="current.coverUrl" :alt="`Pochette de ${current.album}`" class="music-cover">
         <div class="music-player-body">
           <div class="card-eyebrow">Lecture en cours</div>
-          <h2 class="music-title">{{ spotify.title }}</h2>
-          <p class="music-artist">{{ spotify.artist }} · {{ spotify.album }}</p>
+          <h2 class="music-title">{{ current.title }}</h2>
+          <p class="music-artist">{{ current.artist }} · {{ current.album }}</p>
           <div class="music-progress"><span :style="{ width: `${progress}%` }"></span></div>
-          <div class="music-time"><span>2:12</span><span>5:09</span></div>
+          <div class="music-time"><span>{{ formatTime(progressMs) }}</span><span>{{ formatTime(current.durationMs) }}</span></div>
           <div class="music-controls">
             <button aria-label="Lecture aléatoire"><Shuffle :size="20" /></button>
-            <button aria-label="Précédent"><SkipBack :size="25" /></button>
-            <button class="music-play" :aria-label="isPlaying ? 'Pause' : 'Lecture'" @click="isPlaying = !isPlaying">
+            <button :disabled="busy" aria-label="Précédent" @click="command('previous')"><SkipBack :size="25" /></button>
+            <button :disabled="busy" class="music-play" :aria-label="isPlaying ? 'Pause' : 'Lecture'" @click="command(isPlaying ? 'pause' : 'play')">
               <Pause v-if="isPlaying" :size="28" />
               <Play v-else :size="28" />
             </button>
-            <button aria-label="Suivant"><SkipForward :size="25" /></button>
+            <button :disabled="busy" aria-label="Suivant" @click="command('next')"><SkipForward :size="25" /></button>
             <button aria-label="Répéter"><Repeat2 :size="20" /></button>
           </div>
-          <div class="volume-control"><Volume2 :size="20" /><input v-model.number="volume" type="range" min="0" max="100" aria-label="Volume"><span>{{ volume }}%</span></div>
+          <div class="volume-control"><Volume2 :size="20" /><input :value="volume" type="range" min="0" max="100" aria-label="Volume" disabled><span>{{ volume }}%</span></div>
         </div>
       </article>
 
       <aside class="music-side">
         <article class="panel output-card">
-          <div class="panel-heading"><div><div class="card-eyebrow">Sortie audio</div><h2>Salon</h2></div><Airplay :size="24" /></div>
-          <p>Apple TV · Connecté</p>
+          <div class="panel-heading"><div><div class="card-eyebrow">Sortie audio</div><h2>{{ deviceName }}</h2></div><Airplay :size="24" /></div>
+          <p>{{ deviceType }} · Connecté</p>
           <button class="secondary-button">Changer d'appareil</button>
         </article>
         <article class="panel queue-card">
           <div class="panel-heading"><div><div class="card-eyebrow">À suivre</div><h2>File d'attente</h2></div><ListMusic :size="24" /></div>
-          <div v-for="item in queue" :key="item.title" class="queue-row">
+          <div v-for="item in queue" :key="`${item.title}-${item.artist}`" class="queue-row">
             <button aria-label="Ajouter aux favoris"><Heart :size="17" /></button>
             <div><strong>{{ item.title }}</strong><span>{{ item.artist }}</span></div><small>{{ item.duration }}</small>
           </div>
