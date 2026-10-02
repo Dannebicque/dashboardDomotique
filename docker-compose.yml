@@ -1,0 +1,31 @@
+services:
+  php:
+    build:
+      context: .
+      target: api
+    restart: unless-stopped
+    env_file:
+      - api/.env.local
+    volumes:
+      - integrations:/var/www/api/var/integrations
+    networks:
+      - dashboard
+
+  web:
+    build:
+      context: .
+      target: web
+    restart: unless-stopped
+    depends_on:
+      - php
+    ports:
+      - "${DASHBOARD_PORT:-8080}:80"
+    networks:
+      - dashboard
+
+volumes:
+  integrations:
+
+networks:
+  dashboard:
+    driver: bridge
