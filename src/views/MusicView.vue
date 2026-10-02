@@ -52,10 +52,20 @@ async function refresh() {
 async function command(action: 'play' | 'pause' | 'next' | 'previous') {
   if (busy.value) return
   busy.value = true
+
+  const previousPlaying = playback.value?.is_playing
+  if (playback.value && (action === 'play' || action === 'pause')) {
+    playback.value = { ...playback.value, is_playing: action === 'play' }
+  }
+
   try {
     await integrationApi.spotifyCommand(action)
-    await new Promise((resolve) => window.setTimeout(resolve, 650))
-    await refresh()
+    window.setTimeout(() => void refresh(), 1200)
+  } catch (error) {
+    if (playback.value && previousPlaying !== undefined) {
+      playback.value = { ...playback.value, is_playing: previousPlaying }
+    }
+    throw error
   } finally {
     busy.value = false
   }
