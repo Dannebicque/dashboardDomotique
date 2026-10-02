@@ -47,6 +47,16 @@ export interface Light {
   on: boolean
   brightness: number
   status?: DeviceStatus
+  capabilities?: {
+    dimming: boolean
+    colorTemperature: boolean
+    color: boolean
+    gradient: boolean
+  }
+  colorTemperature?: number | null
+  colorTemperatureMin?: number | null
+  colorTemperatureMax?: number | null
+  color?: { x: number; y: number } | null
 }
 
 export interface Shutter {
