@@ -12,7 +12,6 @@ const devices = ref<Array<{ id: string; name: string; type: string; is_active: b
 const liveProgressMs = ref(0)
 let progressTimer: number | undefined
 let syncTimer: number | undefined
-let playbackGuardUntil = 0
 let expectedPlaying: boolean | null = null
 
 const isPlaying = computed(() => playback.value?.is_playing ?? false)
@@ -64,8 +63,10 @@ async function refresh() {
   const [status, queueData, deviceData] = await Promise.all([integrationApi.spotify(), integrationApi.spotifyQueue(), integrationApi.spotifyDevices()])
   const incoming = status.playback
   if (incoming) {
-    const guarded = expectedPlaying !== null && Date.now() < playbackGuardUntil
-    playback.value = guarded ? { ...incoming, is_playing: expectedPlaying } : incoming
+    if (expectedPlaying !== null && incoming.is_playing === expectedPlaying) {
+      expectedPlaying = null
+    }
+    playback.value = expectedPlaying !== null ? { ...incoming, is_playing: expectedPlaying } : incoming
   } else {
     playback.value = incoming
   }
@@ -82,7 +83,6 @@ async function command(action: 'play' | 'pause' | 'next' | 'previous') {
 
   if (changesPlayingState) {
     expectedPlaying = action === 'play'
-    playbackGuardUntil = Date.now() + 5000
     if (playback.value) {
       playback.value = { ...playback.value, is_playing: expectedPlaying }
     }
@@ -98,7 +98,6 @@ async function command(action: 'play' | 'pause' | 'next' | 'previous') {
           if (status.playback?.is_playing === expectedPlaying) {
             playback.value = status.playback
             expectedPlaying = null
-            playbackGuardUntil = 0
             syncProgressTimer()
           }
         } catch {
@@ -110,7 +109,6 @@ async function command(action: 'play' | 'pause' | 'next' | 'previous') {
     }
   } catch (error) {
     expectedPlaying = null
-    playbackGuardUntil = 0
     playback.value = previousPlayback
     syncProgressTimer()
     throw error
@@ -148,12 +146,7 @@ async function changeDevice() {
 
 onMounted(() => {
   void refresh()
-  syncTimer = window.setInterval(() => {
-    if (expectedPlaying === null || Date.now() >= playbackGuardUntil) {
-      expectedPlaying = null
-      void refresh()
-    }
-  }, 15000)
+  syncTimer = window.setInterval(() => void refresh(), 15000)
 })
 
 onBeforeUnmount(() => {
