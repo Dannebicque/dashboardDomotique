@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Activity, Battery, CloudRain, CloudSun, Droplets, Gauge, Thermometer, Volume2, Wind } from 'lucide-vue-next'
 import TopBar from '../components/TopBar.vue'
 import { homeService, type ClimateSensor } from '../services/homeService'
@@ -36,7 +36,24 @@ async function refresh() {
   available.value = data.available
   sensors.value = data.items
 }
-onMounted(refresh)
+let refreshTimer: number | undefined
+
+function refreshWhenVisible() {
+  if (document.visibilityState === 'visible') void refresh()
+}
+
+onMounted(() => {
+  void refresh()
+  refreshTimer = window.setInterval(() => {
+    if (document.visibilityState === 'visible') void refresh()
+  }, 5 * 60 * 1000)
+  document.addEventListener('visibilitychange', refreshWhenVisible)
+})
+
+onBeforeUnmount(() => {
+  if (refreshTimer !== undefined) window.clearInterval(refreshTimer)
+  document.removeEventListener('visibilitychange', refreshWhenVisible)
+})
 </script>
 
 <template>
