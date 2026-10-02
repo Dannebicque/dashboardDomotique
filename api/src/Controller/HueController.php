@@ -7,6 +7,7 @@ use App\Infrastructure\Hue\HuePairingService;
 use App\Infrastructure\Integration\CredentialStore;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/api/integrations/hue')]
@@ -54,6 +55,30 @@ final readonly class HueController
         } catch (\Throwable $e) {
             return new JsonResponse(['error' => $e->getMessage()], 409);
         }
+    }
+
+    #[Route('/events', methods: ['GET'])]
+    public function events(): StreamedResponse
+    {
+        $response = new StreamedResponse(function (): void {
+            echo ": connected\n\n";
+            flush();
+
+            foreach ($this->hue->events() as $payload) {
+                if (connection_aborted()) {
+                    break;
+                }
+
+                echo 'data: '.$payload."\n\n";
+                flush();
+            }
+        });
+
+        $response->headers->set('Content-Type', 'text/event-stream');
+        $response->headers->set('Cache-Control', 'no-cache');
+        $response->headers->set('X-Accel-Buffering', 'no');
+
+        return $response;
     }
 
     #[Route('', methods: ['DELETE'])]
