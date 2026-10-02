@@ -13,7 +13,7 @@ export interface DashboardData {
 interface DashboardApiResponse {
   weather: { available: boolean; temperature?: number; apparentTemperature?: number; min?: number; max?: number; rainProbability?: number; hourly?: Array<{ time: string; temperature: number; rainProbability: number }> }
   sensors: { available: boolean; items?: Array<{ id: string; name: string; kind: 'indoor' | 'outdoor'; temperature: number; humidity: number | null; co2: number | null; pressure: number | null }> }
-  spotify: { available: boolean; isPlaying?: boolean; track?: { title: string; artist: string; album: string; coverUrl: string; progressMs: number; durationMs: number } | null }
+  spotify: { available: boolean; isPlaying?: boolean; device?: { name: string; type: string; volumePercent: number | null } | null; track?: { title: string; artist: string; album: string; coverUrl: string; progressMs: number; durationMs: number } | null }
 }
 
 async function api<T>(path: string, options?: RequestInit): Promise<T> {
@@ -42,7 +42,9 @@ function mapDashboard(raw: DashboardApiResponse): DashboardData {
       rainProbability: raw.weather.rainProbability ?? weather.rainProbability,
       hourly: (raw.weather.hourly ?? []).map((hour) => ({ time: hour.time, temperature: hour.temperature, condition: hour.rainProbability > 50 ? 'rain' : 'cloudy' as const })),
     } : structuredClone(weather),
-    spotify: raw.spotify.available && raw.spotify.track ? { isPlaying: raw.spotify.isPlaying ?? false, ...raw.spotify.track } : structuredClone(spotify),
+    spotify: raw.spotify.available && raw.spotify.track
+      ? { connected: true, isPlaying: raw.spotify.isPlaying ?? false, deviceName: raw.spotify.device?.name, deviceType: raw.spotify.device?.type, volumePercent: raw.spotify.device?.volumePercent, ...raw.spotify.track }
+      : { ...structuredClone(spotify), connected: raw.spotify.available, isPlaying: false },
     rooms: structuredClone(rooms),
   }
 }
