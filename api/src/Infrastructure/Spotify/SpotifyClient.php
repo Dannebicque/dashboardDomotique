@@ -46,7 +46,15 @@ final readonly class SpotifyClient
             'previous' => '/v1/me/player/previous',
             default => throw new \InvalidArgumentException('Unsupported Spotify command.'),
         };
-        $this->request($method, $path);
+
+        $deviceId = $this->playback()['device']['id'] ?? null;
+        $query = is_string($deviceId) && '' !== $deviceId ? '?device_id='.rawurlencode($deviceId) : '';
+        $this->request($method, $path.$query);
+    }
+
+    public function queue(): array
+    {
+        return $this->request('GET', '/v1/me/player/queue');
     }
 
     private function request(string $method, string $path): array
