@@ -12,6 +12,8 @@ const devices = ref<Array<{ id: string; name: string; type: string; is_active: b
 const liveProgressMs = ref(0)
 let progressTimer: number | undefined
 let syncTimer: number | undefined
+let playbackGuardUntil = 0
+let expectedPlaying: boolean | null = null
 
 const isPlaying = computed(() => playback.value?.is_playing ?? false)
 const shuffleEnabled = computed(() => Boolean((playback.value as SpotifyPlayback & { shuffle_state?: boolean } | null)?.shuffle_state))
@@ -60,20 +62,15 @@ function mapQueue(items: SpotifyTrackApi[] = []) {
 
 async function refresh() {
   const [status, queueData, deviceData] = await Promise.all([integrationApi.spotify(), integrationApi.spotifyQueue(), integrationApi.spotifyDevices()])
-  playback.value = status.playback
+  const incoming = status.playback
+  if (incoming) {
+    const guarded = expectedPlaying !== null && Date.now() < playbackGuardUntil
+    playback.value = guarded ? { ...incoming, is_playing: expectedPlaying } : incoming
+  } else {
+    playback.value = incoming
+  }
   queue.value = mapQueue(queueData.queue)
   devices.value = deviceData.devices ?? []
-}
-
-async function waitForPlaybackState(expected: boolean) {
-  for (let attempt = 0; attempt < 5; attempt++) {
-    await new Promise((resolve) => window.setTimeout(resolve, 800))
-    const status = await integrationApi.spotify()
-    if (status.playback?.is_playing === expected) {
-      playback.value = status.playback
-      return
-    }
-  }
 }
 
 async function command(action: 'play' | 'pause' | 'next' | 'previous') {
@@ -82,21 +79,40 @@ async function command(action: 'play' | 'pause' | 'next' | 'previous') {
 
   const previousPlayback = playback.value
   const changesPlayingState = action === 'play' || action === 'pause'
-  const expectedPlaying = action === 'play'
 
-  if (playback.value && changesPlayingState) {
-    playback.value = { ...playback.value, is_playing: expectedPlaying }
+  if (changesPlayingState) {
+    expectedPlaying = action === 'play'
+    playbackGuardUntil = Date.now() + 5000
+    if (playback.value) {
+      playback.value = { ...playback.value, is_playing: expectedPlaying }
+    }
+    syncProgressTimer()
   }
 
   try {
     await integrationApi.spotifyCommand(action)
     if (changesPlayingState) {
-      void waitForPlaybackState(expectedPlaying)
+      window.setTimeout(async () => {
+        try {
+          const status = await integrationApi.spotify()
+          if (status.playback?.is_playing === expectedPlaying) {
+            playback.value = status.playback
+            expectedPlaying = null
+            playbackGuardUntil = 0
+            syncProgressTimer()
+          }
+        } catch {
+          // Keep the local state until the normal refresh cycle.
+        }
+      }, 2500)
     } else {
       window.setTimeout(() => void refresh(), 900)
     }
   } catch (error) {
+    expectedPlaying = null
+    playbackGuardUntil = 0
     playback.value = previousPlayback
+    syncProgressTimer()
     throw error
   } finally {
     busy.value = false
@@ -132,7 +148,12 @@ async function changeDevice() {
 
 onMounted(() => {
   void refresh()
-  syncTimer = window.setInterval(() => void refresh(), 15000)
+  syncTimer = window.setInterval(() => {
+    if (expectedPlaying === null || Date.now() >= playbackGuardUntil) {
+      expectedPlaying = null
+      void refresh()
+    }
+  }, 15000)
 })
 
 onBeforeUnmount(() => {
