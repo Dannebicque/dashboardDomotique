@@ -35,17 +35,21 @@ export interface SpotifySnapshot {
   coverUrl: string
 }
 
+export type DeviceStatus = 'online' | 'offline' | 'updating'
+
 export interface Light {
   id: string
   name: string
   on: boolean
   brightness: number
+  status?: DeviceStatus
 }
 
 export interface Shutter {
   id: string
   name: string
   position: number
+  status?: DeviceStatus
 }
 
 export interface Room {
