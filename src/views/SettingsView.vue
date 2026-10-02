@@ -49,6 +49,23 @@ async function refresh() {
 
 async function configure(key: IntegrationKey) {
   error.value = ''
+  const connected = statuses.value[key]?.configured ?? false
+
+  if (connected && key !== 'weather' && key !== 'tahoma') {
+    busy.value = key
+    try {
+      if (key === 'hue') await settingsApi.disconnectHue()
+      if (key === 'spotify') await settingsApi.disconnectSpotify()
+      if (key === 'netatmo') await settingsApi.disconnectNetatmo()
+      await refresh()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Déconnexion impossible'
+    } finally {
+      busy.value = null
+    }
+    return
+  }
+
   if (key === 'spotify') {
     window.location.href = settingsApi.connectSpotifyUrl
     return
@@ -96,7 +113,7 @@ onMounted(refresh)
               :disabled="integration.key === 'weather' || integration.key === 'tahoma' || busy === integration.key"
               @click="configure(integration.key)"
             >
-              {{ integration.connected ? 'Reconnecter' : 'Configurer' }}
+              {{ integration.connected ? 'Déconnecter' : 'Configurer' }}
             </button>
           </article>
         </div>
