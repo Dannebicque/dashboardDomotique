@@ -11,3 +11,32 @@
     </nav>
   </div>
 </template>
+
+
+<style scoped>
+.bottom-nav {
+  width: min(94vw, 760px);
+  max-width: none;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  flex-wrap: nowrap;
+}
+
+.nav-item {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .bottom-nav {
+    width: calc(100vw - 24px);
+    gap: 2px;
+    padding-inline: 8px;
+  }
+
+  .nav-item {
+    padding-inline: 4px;
+    font-size: .72rem;
+  }
+}
+</style>
