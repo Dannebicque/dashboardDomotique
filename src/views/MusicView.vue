@@ -65,22 +65,38 @@ async function refresh() {
   devices.value = deviceData.devices ?? []
 }
 
+async function waitForPlaybackState(expected: boolean) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    await new Promise((resolve) => window.setTimeout(resolve, 800))
+    const status = await integrationApi.spotify()
+    if (status.playback?.is_playing === expected) {
+      playback.value = status.playback
+      return
+    }
+  }
+}
+
 async function command(action: 'play' | 'pause' | 'next' | 'previous') {
   if (busy.value) return
   busy.value = true
 
-  const previousPlaying = playback.value?.is_playing
-  if (playback.value && (action === 'play' || action === 'pause')) {
-    playback.value = { ...playback.value, is_playing: action === 'play' }
+  const previousPlayback = playback.value
+  const changesPlayingState = action === 'play' || action === 'pause'
+  const expectedPlaying = action === 'play'
+
+  if (playback.value && changesPlayingState) {
+    playback.value = { ...playback.value, is_playing: expectedPlaying }
   }
 
   try {
     await integrationApi.spotifyCommand(action)
-    window.setTimeout(() => void refresh(), 1200)
-  } catch (error) {
-    if (playback.value && previousPlaying !== undefined) {
-      playback.value = { ...playback.value, is_playing: previousPlaying }
+    if (changesPlayingState) {
+      void waitForPlaybackState(expectedPlaying)
+    } else {
+      window.setTimeout(() => void refresh(), 900)
     }
+  } catch (error) {
+    playback.value = previousPlayback
     throw error
   } finally {
     busy.value = false
