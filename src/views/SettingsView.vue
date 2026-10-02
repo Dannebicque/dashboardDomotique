@@ -13,6 +13,7 @@ const compactHome = ref(false)
 const loading = ref(true)
 const busy = ref<IntegrationKey | null>(null)
 const error = ref('')
+const tahomaToken = ref('')
 const statuses = ref<Partial<Record<IntegrationKey, IntegrationStatus>>>({})
 
 const definitions = [
@@ -51,12 +52,13 @@ async function configure(key: IntegrationKey) {
   error.value = ''
   const connected = statuses.value[key]?.configured ?? false
 
-  if (connected && key !== 'weather' && key !== 'tahoma') {
+  if (connected && key !== 'weather') {
     busy.value = key
     try {
       if (key === 'hue') await settingsApi.disconnectHue()
       if (key === 'spotify') await settingsApi.disconnectSpotify()
       if (key === 'netatmo') await settingsApi.disconnectNetatmo()
+      if (key === 'tahoma') await settingsApi.disconnectTahoma()
       await refresh()
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Déconnexion impossible'
@@ -74,6 +76,24 @@ async function configure(key: IntegrationKey) {
     window.location.href = settingsApi.connectNetatmoUrl
     return
   }
+  if (key === 'tahoma') {
+    if (!tahomaToken.value.trim()) {
+      error.value = 'Saisis le token local TaHoma avant de connecter la box.'
+      return
+    }
+    busy.value = key
+    try {
+      await settingsApi.configureTahoma(tahomaToken.value.trim())
+      tahomaToken.value = ''
+      await refresh()
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Connexion TaHoma impossible'
+    } finally {
+      busy.value = null
+    }
+    return
+  }
+
   if (key === 'hue') {
     busy.value = key
     try {
@@ -110,11 +130,15 @@ onMounted(refresh)
             <div class="integration-status"><span :class="{ connected: integration.connected }"></span>{{ integration.status }}</div>
             <button
               class="secondary-button"
-              :disabled="integration.key === 'weather' || integration.key === 'tahoma' || busy === integration.key"
+              :disabled="integration.key === 'weather' || busy === integration.key"
               @click="configure(integration.key)"
             >
               {{ integration.connected ? 'Déconnecter' : 'Configurer' }}
             </button>
+          <div v-if="integration.key === 'tahoma' && !integration.connected" class="integration-config">
+              <input v-model="tahomaToken" type="password" autocomplete="off" placeholder="Token local TaHoma" aria-label="Token local TaHoma">
+              <small>Généré après activation du mode développeur TaHoma.</small>
+            </div>
           </article>
         </div>
       </div>
