@@ -16,14 +16,14 @@ function syncTimer() {
   if (timer) window.clearInterval(timer)
   timer = undefined
   liveProgressMs.value = props.track.progressMs
-  if (props.track.isPlaying) {
+  if (displayedPlaying.value) {
     timer = window.setInterval(() => {
       liveProgressMs.value = Math.min(liveProgressMs.value + 1000, props.track.durationMs)
     }, 1000)
   }
 }
 
-watch(() => [props.track.progressMs, props.track.durationMs, props.track.isPlaying], syncTimer, { immediate: true })
+watch(() => [props.track.progressMs, props.track.durationMs, displayedPlaying.value], syncTimer, { immediate: true })
 onBeforeUnmount(() => { if (timer) window.clearInterval(timer) })
 
 const progress = computed(() => props.track.durationMs > 0 ? Math.min(100, (liveProgressMs.value / props.track.durationMs) * 100) : 0)
@@ -32,7 +32,10 @@ async function command(action: 'play' | 'pause' | 'next' | 'previous') {
   if (busy.value) return
   busy.value = true
   const changesPlayingState = action === 'play' || action === 'pause'
-  if (changesPlayingState) optimisticPlaying.value = action === 'play'
+  if (changesPlayingState) {
+    optimisticPlaying.value = action === 'play'
+    syncTimer()
+  }
   try {
     await integrationApi.spotifyCommand(action)
     if (changesPlayingState) {
