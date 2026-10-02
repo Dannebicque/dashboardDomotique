@@ -46,7 +46,8 @@ export const realHomeApi = {
   updateLight: (id: string, payload: { on?: boolean; brightness?: number }) =>
     api<ApiLight>(`/api/lights/${id}`, { method: 'PUT', body: JSON.stringify(payload) }),
   hueStatus: () => api<{ provider: 'hue'; configured: boolean }>('/api/integrations/hue'),
-  pairHue: () => api<{ applicationKey: string; message: string }>('/api/integrations/hue/pair', { method: 'POST' }),
+  pairHue: () => api<{ configured: boolean }>('/api/integrations/hue/pair', { method: 'POST' }),
+  disconnectHue: () => fetch('/api/integrations/hue', { method: 'DELETE' }),
 }
 
 export const integrationApi = {
@@ -66,4 +67,6 @@ export const settingsApi = {
   integrations: () => api<Record<'hue' | 'tahoma' | 'netatmo' | 'spotify' | 'weather', IntegrationStatus>>('/api/integrations'),
   connectSpotifyUrl: '/api/integrations/spotify/connect',
   connectNetatmoUrl: '/api/integrations/netatmo/connect',
+  pairHue: () => realHomeApi.pairHue(),
+  disconnectHue: () => realHomeApi.disconnectHue(),
 }
