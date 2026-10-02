@@ -2,20 +2,20 @@
 
 namespace App\Infrastructure\Hue;
 
+use App\Infrastructure\Integration\CredentialStore;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 final readonly class HuePairingService
 {
     public function __construct(
         private HttpClientInterface $httpClient,
+        private CredentialStore $credentials,
         private string $bridgeUrl,
     ) {}
 
-    public function pair(): string
+    public function pair(): void
     {
-        if ('' === trim($this->bridgeUrl)) {
-            throw new \RuntimeException('HUE_BRIDGE_URL is not configured.');
-        }
+        if ('' === trim($this->bridgeUrl)) throw new \RuntimeException('HUE_BRIDGE_URL is not configured.');
 
         $response = $this->httpClient->request('POST', rtrim($this->bridgeUrl, '/').'/api', [
             'json' => ['devicetype' => 'dashboard_domotique#tablet'],
@@ -25,10 +25,8 @@ final readonly class HuePairingService
 
         $key = $response[0]['success']['username'] ?? null;
         if (!is_string($key) || '' === $key) {
-            $message = $response[0]['error']['description'] ?? 'Pairing failed. Press the Hue Bridge button and retry.';
-            throw new \RuntimeException((string) $message);
+            throw new \RuntimeException((string) ($response[0]['error']['description'] ?? 'Press the Hue Bridge button and retry.'));
         }
-
-        return $key;
+        $this->credentials->put('hue', 'application_key', $key);
     }
 }
