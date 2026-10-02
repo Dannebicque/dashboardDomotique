@@ -2,6 +2,7 @@
 
 namespace App\Infrastructure\Spotify;
 
+use App\Infrastructure\OAuth\RefreshTokenStore;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
 
@@ -9,14 +10,24 @@ final readonly class SpotifyClient
 {
     public function __construct(
         private HttpClientInterface $httpClient,
+        private RefreshTokenStore $tokens,
         #[Autowire('%env(string:SPOTIFY_CLIENT_ID)%')] private string $clientId,
         #[Autowire('%env(string:SPOTIFY_CLIENT_SECRET)%')] private string $clientSecret,
-        #[Autowire('%env(string:SPOTIFY_REFRESH_TOKEN)%')] private string $refreshToken,
     ) {}
 
     public function isConfigured(): bool
     {
-        return '' !== $this->clientId && '' !== $this->clientSecret && '' !== $this->refreshToken;
+        return '' !== $this->clientId && '' !== $this->clientSecret && null !== $this->tokens->get('spotify');
+    }
+
+    public function exchangeCode(string $code, string $redirectUri): void
+    {
+        $data = $this->httpClient->request('POST', 'https://accounts.spotify.com/api/token', [
+            'auth_basic' => [$this->clientId, $this->clientSecret],
+            'body' => ['grant_type' => 'authorization_code', 'code' => $code, 'redirect_uri' => $redirectUri],
+        ])->toArray();
+
+        $this->tokens->put('spotify', (string) $data['refresh_token']);
     }
 
     public function playback(): ?array
@@ -40,19 +51,17 @@ final readonly class SpotifyClient
 
     private function request(string $method, string $path): array
     {
-        $response = $this->httpClient->request($method, 'https://api.spotify.com'.$path, ['auth_bearer' => $this->accessToken()]);
-        return 204 === $response->getStatusCode() ? [] : $response->toArray(false);
-    }
-
-    private function accessToken(): string
-    {
-        if (!$this->isConfigured()) throw new \RuntimeException('Spotify is not configured.');
+        $refreshToken = $this->tokens->get('spotify');
+        if (null === $refreshToken) throw new \RuntimeException('Spotify is not connected.');
 
         $data = $this->httpClient->request('POST', 'https://accounts.spotify.com/api/token', [
             'auth_basic' => [$this->clientId, $this->clientSecret],
-            'body' => ['grant_type' => 'refresh_token', 'refresh_token' => $this->refreshToken],
+            'body' => ['grant_type' => 'refresh_token', 'refresh_token' => $refreshToken],
         ])->toArray();
 
-        return (string) $data['access_token'];
+        if (isset($data['refresh_token'])) $this->tokens->put('spotify', (string) $data['refresh_token']);
+
+        $response = $this->httpClient->request($method, 'https://api.spotify.com'.$path, ['auth_bearer' => (string) $data['access_token']]);
+        return 204 === $response->getStatusCode() ? [] : $response->toArray(false);
     }
 }
