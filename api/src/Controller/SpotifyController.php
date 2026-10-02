@@ -65,6 +65,12 @@ final readonly class SpotifyController
         return new JsonResponse($this->spotify->playback());
     }
 
+    #[Route('/queue', methods: ['GET'])]
+    public function queue(): JsonResponse
+    {
+        return new JsonResponse($this->spotify->queue());
+    }
+
     #[Route('/player/{command}', requirements: ['command' => 'play|pause|next|previous'], methods: ['POST'])]
     public function command(string $command): JsonResponse
     {
