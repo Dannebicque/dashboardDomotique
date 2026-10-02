@@ -69,6 +69,7 @@ export interface Shutter {
 export interface Room {
   id: string
   name: string
+  hueRoomIds?: string[]
   lights: Light[]
   shutters: Shutter[]
 }
