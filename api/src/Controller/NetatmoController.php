@@ -18,6 +18,7 @@ final readonly class NetatmoController
         private RefreshTokenStore $tokens,
         #[Autowire('%env(string:NETATMO_CLIENT_ID)%')] private string $clientId,
         #[Autowire('%env(string:NETATMO_REDIRECT_URI)%')] private string $redirectUri,
+        #[Autowire('%env(string:FRONTEND_URL)%')] private string $frontendUrl,
     ) {}
 
     #[Route('', methods: ['GET'])]
@@ -43,14 +44,20 @@ final readonly class NetatmoController
     }
 
     #[Route('/callback', methods: ['GET'])]
-    public function callback(Request $request): JsonResponse
+    public function callback(Request $request): JsonResponse|RedirectResponse
     {
         if (!hash_equals((string) $request->getSession()->remove('netatmo_oauth_state'), (string) $request->query->get('state'))) {
             return new JsonResponse(['error' => 'Invalid OAuth state.'], 400);
         }
 
-        $this->netatmo->exchangeCode((string) $request->query->get('code'), $this->redirectUri);
-        return new JsonResponse(['connected' => true]);
+        $code = (string) $request->query->get('code');
+        if ('' === $code) {
+            return new JsonResponse(['error' => (string) $request->query->get('error', 'Missing authorization code.')], 400);
+        }
+
+        $this->netatmo->exchangeCode($code, $this->redirectUri);
+
+        return new RedirectResponse(rtrim($this->frontendUrl, '/').'/reglages?netatmo=connected');
     }
 
     #[Route('', methods: ['DELETE'])]
