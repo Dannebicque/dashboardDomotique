@@ -1,30 +1,63 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ChevronDown, ChevronUp, Lightbulb, Square } from 'lucide-vue-next'
 import SceneQuickActions from '../components/SceneQuickActions.vue'
 import TopBar from '../components/TopBar.vue'
-import { rooms as initialRooms } from '../data/mock'
-import type { Room } from '../types/home'
+import { homeService, realHomeApi } from '../services/homeService'
+import type { Light, Room } from '../types/home'
 
-const rooms = reactive<Room[]>(structuredClone(initialRooms))
-const selectedRoomId = ref(rooms[0]?.id ?? '')
-const room = computed(() => rooms.find((item) => item.id === selectedRoomId.value) ?? rooms[0])
-const totalLightsOn = computed(() => rooms.flatMap((item) => item.lights).filter((light) => light.on).length)
-const totalShuttersOpen = computed(() => rooms.flatMap((item) => item.shutters).filter((shutter) => shutter.position > 0).length)
+const rooms = ref<Room[]>([])
+const selectedRoomId = ref('')
+const loading = ref(true)
+const error = ref('')
 
-function turnAllLightsOff() {
-  rooms.forEach((item) => item.lights.forEach((light) => { if (light.status !== 'offline') light.on = false }))
+const room = computed(() => rooms.value.find((item) => item.id === selectedRoomId.value) ?? rooms.value[0])
+const totalLightsOn = computed(() => rooms.value.flatMap((item) => item.lights).filter((light) => light.on).length)
+const totalShuttersOpen = computed(() => rooms.value.flatMap((item) => item.shutters).filter((shutter) => shutter.position > 0).length)
+
+onMounted(async () => {
+  try {
+    rooms.value = await homeService.getRooms()
+    selectedRoomId.value = rooms.value[0]?.id ?? ''
+  } catch {
+    error.value = 'Impossible de charger les équipements de la maison.'
+  } finally {
+    loading.value = false
+  }
+})
+
+async function updateLight(light: Light, payload: { on?: boolean; brightness?: number }) {
+  const previous = { on: light.on, brightness: light.brightness, status: light.status }
+  light.status = 'updating'
+
+  if (payload.on !== undefined) light.on = payload.on
+  if (payload.brightness !== undefined) light.brightness = payload.brightness
+
+  try {
+    Object.assign(light, await realHomeApi.updateLight(light.id, payload))
+  } catch {
+    Object.assign(light, previous)
+    error.value = `Impossible de piloter « ${light.name} ».`
+  }
+}
+
+async function turnAllLightsOff() {
+  const active = rooms.value.flatMap((item) => item.lights).filter((light) => light.on && light.status !== 'offline')
+  await Promise.all(active.map((light) => updateLight(light, { on: false })))
 }
 
 function closeAllShutters() {
-  rooms.forEach((item) => item.shutters.forEach((shutter) => { if (shutter.status !== 'offline') shutter.position = 0 }))
+  rooms.value.forEach((item) => item.shutters.forEach((shutter) => { if (shutter.status !== 'offline') shutter.position = 0 }))
 }
 
-function toggleLight(id: string) {
-  const light = room.value?.lights.find((item) => item.id === id)
-  if (!light || light.status === 'offline') return
-  light.on = !light.on
-  if (light.on && light.brightness === 0) light.brightness = 50
+function toggleLight(light: Light) {
+  if (light.status === 'offline' || light.status === 'updating') return
+  void updateLight(light, { on: !light.on, ...(!light.on && light.brightness === 0 ? { brightness: 50 } : {}) })
+}
+
+function changeBrightness(light: Light) {
+  if (!light.on || light.status === 'offline' || light.status === 'updating') return
+  void updateLight(light, { brightness: light.brightness })
 }
 
 function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
@@ -44,7 +77,7 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
         <p class="hero-kicker">Contrôle</p>
         <h1>Piloter la maison</h1>
       </div>
-      <div class="room-tabs" role="tablist" aria-label="Pièces">
+      <div v-if="rooms.length" class="room-tabs" role="tablist" aria-label="Pièces">
         <button
           v-for="item in rooms"
           :key="item.id"
@@ -58,21 +91,24 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
       </div>
     </section>
 
-    <div class="home-actions">
+    <p v-if="error" role="alert">{{ error }}</p>
+    <p v-if="loading">Chargement des équipements…</p>
+
+    <div v-if="!loading && rooms.length" class="home-actions">
       <SceneQuickActions />
       <div class="global-actions">
         <button type="button" class="global-action" @click="turnAllLightsOff">
           <Lightbulb :size="20" />
           <span><strong>Tout éteindre</strong><small>{{ totalLightsOn }} allumées</small></span>
         </button>
-        <button type="button" class="global-action" @click="closeAllShutters">
+        <button v-if="rooms.some((item) => item.shutters.length)" type="button" class="global-action" @click="closeAllShutters">
           <ChevronDown :size="20" />
           <span><strong>Fermer les volets</strong><small>{{ totalShuttersOpen }} ouverts</small></span>
         </button>
       </div>
     </div>
 
-    <section v-if="room" class="control-sections">
+    <section v-if="room && !loading" class="control-sections">
       <div>
         <div class="section-title">
           <div>
@@ -89,11 +125,11 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
             class="device-card"
             :class="{ 'is-on': light.on, 'is-offline': light.status === 'offline' }"
           >
-            <button class="device-toggle" type="button" @click="toggleLight(light.id)">
+            <button class="device-toggle" type="button" :disabled="light.status === 'updating'" @click="toggleLight(light)">
               <span class="device-icon"><Lightbulb :size="25" /></span>
               <span>
                 <strong>{{ light.name }}</strong>
-                <small>{{ light.status === 'offline' ? 'Indisponible' : light.on ? 'Allumée' : 'Éteinte' }}</small>
+                <small>{{ light.status === 'offline' ? 'Indisponible' : light.status === 'updating' ? 'Mise à jour…' : light.on ? 'Allumée' : 'Éteinte' }}</small>
               </span>
               <span class="switch" :class="{ 'is-on': light.on }"><span></span></span>
             </button>
@@ -104,8 +140,9 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
                 type="range"
                 min="0"
                 max="100"
-                :disabled="!light.on || light.status === 'offline'"
+                :disabled="!light.on || light.status === 'offline' || light.status === 'updating'"
                 :aria-label="`Luminosité de ${light.name}`"
+                @change="changeBrightness(light)"
               >
               <span>{{ light.brightness }}%</span>
             </div>
@@ -113,7 +150,7 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
         </div>
       </div>
 
-      <div>
+      <div v-if="room.shutters.length">
         <div class="section-title">
           <div>
             <div class="card-eyebrow">{{ room.name }}</div>
