@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.idea
+.DS_Store
+api/vendor
+api/var
+api/.env.local
+api/.env.*.local
