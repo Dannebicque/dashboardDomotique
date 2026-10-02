@@ -51,7 +51,19 @@ export const realHomeApi = {
 
 export const integrationApi = {
   weather: () => api<Record<string, unknown>>('/api/weather'),
-  spotify: () => api<{ configured: boolean; playback: Record<string, unknown> | null }>('/api/media/spotify'),
+  spotify: () => api<{ configured: boolean; playback: Record<string, unknown> | null }>('/api/integrations/spotify'),
   spotifyCommand: (command: 'play' | 'pause' | 'next' | 'previous') =>
-    fetch(`/api/media/spotify/${command}`, { method: 'POST' }),
+    fetch(`/api/integrations/spotify/player/${command}`, { method: 'POST' }),
+}
+
+export interface IntegrationStatus {
+  configured: boolean
+  local: boolean
+  status?: string
+}
+
+export const settingsApi = {
+  integrations: () => api<Record<'hue' | 'tahoma' | 'netatmo' | 'spotify' | 'weather', IntegrationStatus>>('/api/integrations'),
+  connectSpotifyUrl: '/api/integrations/spotify/connect',
+  connectNetatmoUrl: '/api/integrations/netatmo/connect',
 }
