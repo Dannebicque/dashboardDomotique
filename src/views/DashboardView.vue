@@ -24,7 +24,9 @@ const spotify = computed(() => dashboard.value.spotify)
 const lightsOn = computed(() => dashboard.value.rooms.flatMap((room) => room.lights).filter((light) => light.on).length)
 const shuttersOpen = computed(() => dashboard.value.rooms.flatMap((room) => room.shutters).filter((shutter) => shutter.position > 0).length)
 
-onMounted(async () => { dashboard.value = await homeService.getDashboard() })
+async function refreshDashboard() { dashboard.value = await homeService.getDashboard() }
+
+onMounted(refreshDashboard)
 </script>
 
 <template>
@@ -98,7 +100,7 @@ onMounted(async () => { dashboard.value = await homeService.getDashboard() })
         </div>
       </article>
 
-      <SpotifyCard :track="spotify" />
+      <SpotifyCard :track="spotify" @refresh="refreshDashboard" />
 
       <article class="panel home-state-card">
         <div class="panel-heading">
