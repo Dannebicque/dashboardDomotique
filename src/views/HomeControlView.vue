@@ -9,17 +9,27 @@ import type { Room } from '../types/home'
 const rooms = reactive<Room[]>(structuredClone(initialRooms))
 const selectedRoomId = ref(rooms[0]?.id ?? '')
 const room = computed(() => rooms.find((item) => item.id === selectedRoomId.value) ?? rooms[0])
+const totalLightsOn = computed(() => rooms.flatMap((item) => item.lights).filter((light) => light.on).length)
+const totalShuttersOpen = computed(() => rooms.flatMap((item) => item.shutters).filter((shutter) => shutter.position > 0).length)
+
+function turnAllLightsOff() {
+  rooms.forEach((item) => item.lights.forEach((light) => { if (light.status !== 'offline') light.on = false }))
+}
+
+function closeAllShutters() {
+  rooms.forEach((item) => item.shutters.forEach((shutter) => { if (shutter.status !== 'offline') shutter.position = 0 }))
+}
 
 function toggleLight(id: string) {
   const light = room.value?.lights.find((item) => item.id === id)
-  if (!light) return
+  if (!light || light.status === 'offline') return
   light.on = !light.on
   if (light.on && light.brightness === 0) light.brightness = 50
 }
 
 function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
   const shutter = room.value?.shutters.find((item) => item.id === id)
-  if (!shutter) return
+  if (!shutter || shutter.status === 'offline') return
   if (direction === 'up') shutter.position = 100
   if (direction === 'down') shutter.position = 0
 }
@@ -48,7 +58,19 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
       </div>
     </section>
 
-    <SceneQuickActions />
+    <div class="home-actions">
+      <SceneQuickActions />
+      <div class="global-actions">
+        <button type="button" class="global-action" @click="turnAllLightsOff">
+          <Lightbulb :size="20" />
+          <span><strong>Tout éteindre</strong><small>{{ totalLightsOn }} allumées</small></span>
+        </button>
+        <button type="button" class="global-action" @click="closeAllShutters">
+          <ChevronDown :size="20" />
+          <span><strong>Fermer les volets</strong><small>{{ totalShuttersOpen }} ouverts</small></span>
+        </button>
+      </div>
+    </div>
 
     <section v-if="room" class="control-sections">
       <div>
@@ -65,13 +87,13 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
             v-for="light in room.lights"
             :key="light.id"
             class="device-card"
-            :class="{ 'is-on': light.on }"
+            :class="{ 'is-on': light.on, 'is-offline': light.status === 'offline' }"
           >
             <button class="device-toggle" type="button" @click="toggleLight(light.id)">
               <span class="device-icon"><Lightbulb :size="25" /></span>
               <span>
                 <strong>{{ light.name }}</strong>
-                <small>{{ light.on ? 'Allumée' : 'Éteinte' }}</small>
+                <small>{{ light.status === 'offline' ? 'Indisponible' : light.on ? 'Allumée' : 'Éteinte' }}</small>
               </span>
               <span class="switch" :class="{ 'is-on': light.on }"><span></span></span>
             </button>
@@ -82,7 +104,7 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
                 type="range"
                 min="0"
                 max="100"
-                :disabled="!light.on"
+                :disabled="!light.on || light.status === 'offline'"
                 :aria-label="`Luminosité de ${light.name}`"
               >
               <span>{{ light.brightness }}%</span>
@@ -100,7 +122,7 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
         </div>
 
         <div class="shutter-grid">
-          <article v-for="shutter in room.shutters" :key="shutter.id" class="shutter-card">
+          <article v-for="shutter in room.shutters" :key="shutter.id" class="shutter-card" :class="{ 'is-offline': shutter.status === 'offline' }">
             <div class="shutter-top">
               <div>
                 <strong>{{ shutter.name }}</strong>
