@@ -26,7 +26,16 @@ onMounted(async () => {
   }
 })
 
-async function updateLight(light: Light, payload: { on?: boolean; brightness?: number }) {
+type LightUpdate = { on?: boolean; brightness?: number; colorTemperature?: number; color?: { x: number; y: number } }
+
+const colorPresets = [
+  { name: 'Chaud', x: 0.526, y: 0.413 },
+  { name: 'Rose', x: 0.45, y: 0.24 },
+  { name: 'Bleu', x: 0.17, y: 0.12 },
+  { name: 'Vert', x: 0.21, y: 0.71 },
+]
+
+async function updateLight(light: Light, payload: LightUpdate) {
   const previous = { on: light.on, brightness: light.brightness, status: light.status }
   light.status = 'updating'
 
@@ -58,6 +67,16 @@ function toggleLight(light: Light) {
 function changeBrightness(light: Light) {
   if (!light.on || light.status === 'offline' || light.status === 'updating') return
   void updateLight(light, { brightness: light.brightness })
+}
+
+function changeColorTemperature(light: Light) {
+  if (!light.on || light.status === 'offline' || light.status === 'updating' || light.colorTemperature == null) return
+  void updateLight(light, { colorTemperature: light.colorTemperature })
+}
+
+function setColor(light: Light, x: number, y: number) {
+  if (!light.on || light.status === 'offline' || light.status === 'updating') return
+  void updateLight(light, { color: { x, y } })
 }
 
 function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
@@ -134,7 +153,7 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
               <span class="switch" :class="{ 'is-on': light.on }"><span></span></span>
             </button>
 
-            <div class="device-slider">
+            <div v-if="light.capabilities?.dimming !== false" class="device-slider">
               <input
                 v-model.number="light.brightness"
                 type="range"
@@ -145,6 +164,33 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
                 @change="changeBrightness(light)"
               >
               <span>{{ light.brightness }}%</span>
+            </div>
+
+            <div v-if="light.capabilities?.colorTemperature && light.colorTemperatureMin != null && light.colorTemperatureMax != null" class="device-slider device-slider--temperature">
+              <small>Froid</small>
+              <input
+                v-model.number="light.colorTemperature"
+                type="range"
+                :min="light.colorTemperatureMin"
+                :max="light.colorTemperatureMax"
+                :disabled="!light.on || light.status === 'offline' || light.status === 'updating'"
+                :aria-label="`Température de couleur de ${light.name}`"
+                @change="changeColorTemperature(light)"
+              >
+              <small>Chaud</small>
+            </div>
+
+            <div v-if="light.capabilities?.color" class="light-color-presets" aria-label="Ambiances colorées">
+              <button
+                v-for="preset in colorPresets"
+                :key="preset.name"
+                type="button"
+                :disabled="!light.on || light.status === 'offline' || light.status === 'updating'"
+                @click="setColor(light, preset.x, preset.y)"
+              >
+                {{ preset.name }}
+              </button>
+              <span v-if="light.capabilities.gradient" class="capability-badge">Gradient</span>
             </div>
           </article>
         </div>
@@ -181,3 +227,7 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
     </section>
   </div>
 </template>
+
+<style scoped>
+.device-slider--temperature small{font-size:.68rem;opacity:.7;white-space:nowrap}.light-color-presets{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.light-color-presets button,.capability-badge{border:1px solid rgba(127,127,127,.22);background:rgba(127,127,127,.08);border-radius:999px;padding:5px 9px;font-size:.7rem}.light-color-presets button:not(:disabled){cursor:pointer}.light-color-presets button:disabled{opacity:.4}.capability-badge{opacity:.65}
+</style>
