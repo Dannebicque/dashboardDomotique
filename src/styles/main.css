@@ -66,3 +66,5 @@
   border-radius: 12px;
   background: rgba(255,120,120,.08);
 }
+
+@media(min-width:901px){.music-layout{align-items:start}.music-player{min-height:390px;gap:24px;padding:18px}.music-cover{max-height:310px}.music-progress{margin-top:24px}.music-controls{margin-top:16px}.volume-control{margin-top:16px}.music-controls button[aria-pressed="true"]{color:var(--accent)}}
