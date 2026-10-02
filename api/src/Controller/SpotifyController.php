@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Infrastructure\OAuth\RefreshTokenStore;
 use App\Infrastructure\Spotify\SpotifyClient;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -14,6 +15,7 @@ final readonly class SpotifyController
 {
     public function __construct(
         private SpotifyClient $spotify,
+        private RefreshTokenStore $tokens,
         #[Autowire('%env(string:SPOTIFY_CLIENT_ID)%')] private string $clientId,
         #[Autowire('%env(string:SPOTIFY_REDIRECT_URI)%')] private string $redirectUri,
     ) {}
@@ -47,6 +49,13 @@ final readonly class SpotifyController
         }
         $this->spotify->exchangeCode((string) $request->query->get('code'), $this->redirectUri);
         return new JsonResponse(['connected' => true]);
+    }
+
+    #[Route('', methods: ['DELETE'])]
+    public function disconnect(): JsonResponse
+    {
+        $this->tokens->remove('spotify');
+        return new JsonResponse(null, 204);
     }
 
     #[Route('/player', methods: ['GET'])]
