@@ -100,6 +100,24 @@ final readonly class SpotifyClient
         $options = ['auth_bearer' => (string) $data['access_token']];
         if (null !== $json) $options['json'] = $json;
         $response = $this->httpClient->request($method, 'https://api.spotify.com'.$path, $options);
-        return 204 === $response->getStatusCode() ? [] : $response->toArray(false);
+        $status = $response->getStatusCode();
+        $content = $response->getContent(false);
+
+        if ($status >= 400) {
+            $error = json_decode($content, true);
+            $message = $error['error']['message'] ?? $error['error_description'] ?? $content ?: 'Spotify API error.';
+            throw new \RuntimeException(sprintf('Spotify API %d: %s', $status, $message));
+        }
+
+        if ('' === trim($content)) {
+            return [];
+        }
+
+        $decoded = json_decode($content, true);
+        if (!is_array($decoded)) {
+            throw new \RuntimeException(sprintf('Unexpected Spotify response (%d).', $status));
+        }
+
+        return $decoded;
     }
 }
