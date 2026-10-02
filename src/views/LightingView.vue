@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Lightbulb } from 'lucide-vue-next'
 import TopBar from '../components/TopBar.vue'
 import { homeService, realHomeApi } from '../services/homeService'
@@ -22,17 +22,32 @@ const roomScenes = computed(() => {
 })
 const activeRoomScene = computed(() => roomScenes.value.find((scene) => scene.status !== 'inactive') ?? roomScenes.value.find((scene) => scene.id === lastRecalledSceneId.value) ?? null)
 
+let hueEvents: EventSource | undefined
+
+async function refreshHueState() {
+  const selectedZone = selectedRoomId.value
+  const [loadedRooms, loadedScenes] = await Promise.all([realHomeApi.rooms(), realHomeApi.scenes()])
+  rooms.value = loadedRooms
+  scenes.value = loadedScenes
+  selectedRoomId.value = rooms.value.some((item) => item.id === selectedZone) ? selectedZone : (rooms.value[0]?.id ?? '')
+}
+
 onMounted(async () => {
   try {
     const [loadedRooms, loadedScenes] = await Promise.all([homeService.getRooms(), realHomeApi.scenes()])
     rooms.value = loadedRooms
     scenes.value = loadedScenes
     selectedRoomId.value = rooms.value[0]?.id ?? ''
+    hueEvents = realHomeApi.hueEvents(() => { void refreshHueState() })
   } catch {
     error.value = 'Impossible de charger les équipements de la maison.'
   } finally {
     loading.value = false
   }
+})
+
+onBeforeUnmount(() => {
+  hueEvents?.close()
 })
 
 type LightUpdate = { on?: boolean; brightness?: number; colorTemperature?: number; color?: { x: number; y: number } }
