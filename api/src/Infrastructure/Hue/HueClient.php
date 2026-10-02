@@ -59,6 +59,12 @@ final readonly class HueClient
             $options['json'] = $payload;
         }
 
+        // Hue bridges are LAN devices. Force IPv4 when Symfony uses CurlHttpClient;
+        // this mirrors the reliable `curl -4` access used during bridge discovery.
+        if (defined('CURLOPT_IPRESOLVE') && defined('CURL_IPRESOLVE_V4')) {
+            $options['extra']['curl'][CURLOPT_IPRESOLVE] = CURL_IPRESOLVE_V4;
+        }
+
         $response = $this->httpClient->request(
             $method,
             rtrim($this->bridgeUrl, '/').'/clip/v2/resource/'.ltrim($path, '/'),
