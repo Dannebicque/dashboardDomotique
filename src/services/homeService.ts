@@ -102,6 +102,11 @@ export const integrationApi = {
   spotify: () => api<{ configured: boolean; playback: SpotifyPlayback | null }>('/api/integrations/spotify'),
   spotifyQueue: () => api<SpotifyQueue>('/api/integrations/spotify/queue'),
   spotifyCommand: (command: 'play' | 'pause' | 'next' | 'previous') => api<void>(`/api/integrations/spotify/player/${command}`, { method: 'POST' }),
+  spotifyDevices: () => api<{ devices: Array<{ id: string; name: string; type: string; is_active: boolean; volume_percent: number | null }> }>('/api/integrations/spotify/devices'),
+  spotifyVolume: (volume: number) => api<void>('/api/integrations/spotify/volume', { method: 'PUT', body: JSON.stringify({ volume }) }),
+  spotifyShuffle: (enabled: boolean) => api<void>('/api/integrations/spotify/shuffle', { method: 'PUT', body: JSON.stringify({ enabled }) }),
+  spotifyRepeat: (state: 'off' | 'context' | 'track') => api<void>('/api/integrations/spotify/repeat', { method: 'PUT', body: JSON.stringify({ state }) }),
+  spotifyTransfer: (deviceId: string) => api<void>('/api/integrations/spotify/device', { method: 'PUT', body: JSON.stringify({ deviceId }) }),
 }
 
 export interface IntegrationStatus { configured: boolean; local: boolean; status?: string }
