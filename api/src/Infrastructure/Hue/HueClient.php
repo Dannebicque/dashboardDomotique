@@ -38,6 +38,58 @@ final readonly class HueClient
         return $this->request('PUT', $path, $payload);
     }
 
+    /**
+     * Opens the Hue v2 event stream and yields each SSE data payload.
+     *
+     * @return \Generator<string>
+     */
+    public function events(): \Generator
+    {
+        $key = $this->credentials->get('hue', 'application_key');
+        if ('' === trim($this->bridgeUrl) || null === $key) {
+            throw new \RuntimeException('Philips Hue is not configured.');
+        }
+
+        $options = [
+            'headers' => [
+                'hue-application-key' => $key,
+                'Accept' => 'text/event-stream',
+            ],
+            'verify_peer' => false,
+            'verify_host' => false,
+            'timeout' => 0,
+            'max_duration' => 0,
+        ];
+        if (defined('CURLOPT_IPRESOLVE') && defined('CURL_IPRESOLVE_V4')) {
+            $options['extra']['curl'][CURLOPT_IPRESOLVE] = CURL_IPRESOLVE_V4;
+        }
+
+        $response = $this->httpClient->request(
+            'GET',
+            rtrim($this->bridgeUrl, '/').'/eventstream/clip/v2',
+            $options,
+        );
+
+        $buffer = '';
+        foreach ($this->httpClient->stream($response) as $chunk) {
+            if ($chunk->isTimeout()) {
+                continue;
+            }
+
+            $buffer .= $chunk->getContent();
+            while (false !== ($separator = strpos($buffer, "\n\n"))) {
+                $event = substr($buffer, 0, $separator);
+                $buffer = substr($buffer, $separator + 2);
+
+                foreach (preg_split('/\r?\n/', $event) ?: [] as $line) {
+                    if (str_starts_with($line, 'data:')) {
+                        yield trim(substr($line, 5));
+                    }
+                }
+            }
+        }
+    }
+
     private function request(string $method, string $path, ?array $payload = null): array
     {
         $key = $this->credentials->get('hue', 'application_key');
