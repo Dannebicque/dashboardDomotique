@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
-import { ChevronDown, ChevronUp, Lightbulb, Minus, Square } from 'lucide-vue-next'
+import { ChevronDown, ChevronUp, Lightbulb, Square } from 'lucide-vue-next'
+import SceneQuickActions from '../components/SceneQuickActions.vue'
 import TopBar from '../components/TopBar.vue'
 import { rooms as initialRooms } from '../data/mock'
 import type { Room } from '../types/home'
@@ -46,6 +47,8 @@ function moveShutter(id: string, direction: 'up' | 'down' | 'stop') {
         </button>
       </div>
     </section>
+
+    <SceneQuickActions />
 
     <section v-if="room" class="control-sections">
       <div>
