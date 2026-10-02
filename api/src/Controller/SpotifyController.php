@@ -3,17 +3,13 @@
 namespace App\Controller;
 
 use App\Infrastructure\Spotify\SpotifyClient;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Attribute\Route;
 
 #[Route('/api/media/spotify')]
 final readonly class SpotifyController
 {
-    public function __construct(
-        private SpotifyClient $spotify,
-        #[Autowire('%env(string:SPOTIFY_CLIENT_ID)%')] string $unusedClientId = '',
-    ) {}
+    public function __construct(private SpotifyClient $spotify) {}
 
     #[Route('', methods: ['GET'])]
     public function status(): JsonResponse
