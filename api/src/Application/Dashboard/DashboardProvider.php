@@ -69,12 +69,24 @@ final readonly class DashboardProvider
     {
         $dashboard = $item['dashboard_data'] ?? [];
         if (!isset($dashboard['Temperature'])) return null;
+
         return [
-            'id' => (string) ($item['_id'] ?? ''), 'name' => (string) ($item['module_name'] ?? $item['station_name'] ?? 'Netatmo'),
-            'kind' => $kind, 'temperature' => (float) $dashboard['Temperature'],
+            'id' => (string) ($item['_id'] ?? ''),
+            'name' => (string) ($item['module_name'] ?? $item['station_name'] ?? 'Netatmo'),
+            'kind' => $kind,
+            'moduleType' => (string) ($item['type'] ?? ''),
+            'reachable' => (bool) ($item['reachable'] ?? true),
+            'lastSeen' => isset($dashboard['time_utc']) ? (int) $dashboard['time_utc'] : (isset($item['last_seen']) ? (int) $item['last_seen'] : null),
+            'batteryPercent' => isset($item['battery_percent']) ? (int) $item['battery_percent'] : null,
+            'temperature' => (float) $dashboard['Temperature'],
             'humidity' => isset($dashboard['Humidity']) ? (int) $dashboard['Humidity'] : null,
             'co2' => isset($dashboard['CO2']) ? (int) $dashboard['CO2'] : null,
-            'pressure' => isset($dashboard['Pressure']) ? (int) round((float) $dashboard['Pressure']) : null,
+            'noise' => isset($dashboard['Noise']) ? (int) $dashboard['Noise'] : null,
+            'pressure' => isset($dashboard['Pressure']) ? (float) $dashboard['Pressure'] : null,
+            'temperatureTrend' => isset($dashboard['temp_trend']) ? (string) $dashboard['temp_trend'] : null,
+            'pressureTrend' => isset($dashboard['pressure_trend']) ? (string) $dashboard['pressure_trend'] : null,
+            'minTemperature' => isset($dashboard['min_temp']) ? (float) $dashboard['min_temp'] : null,
+            'maxTemperature' => isset($dashboard['max_temp']) ? (float) $dashboard['max_temp'] : null,
         ];
     }
 
