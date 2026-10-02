@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Airplay, Heart, ListMusic, Pause, Play, Repeat2, Shuffle, SkipBack, SkipForward, Volume2 } from 'lucide-vue-next'
 import TopBar from '../components/TopBar.vue'
 import { integrationApi, type SpotifyPlayback, type SpotifyTrackApi } from '../services/homeService'
@@ -9,6 +9,9 @@ const playback = ref<SpotifyPlayback | null>(null)
 const queue = ref<Array<{ title: string; artist: string; duration: string }>>([])
 const busy = ref(false)
 const devices = ref<Array<{ id: string; name: string; type: string; is_active: boolean; volume_percent: number | null }>>([])
+const liveProgressMs = ref(0)
+let progressTimer: number | undefined
+let syncTimer: number | undefined
 
 const isPlaying = computed(() => playback.value?.is_playing ?? false)
 const shuffleEnabled = computed(() => Boolean((playback.value as SpotifyPlayback & { shuffle_state?: boolean } | null)?.shuffle_state))
@@ -24,8 +27,21 @@ const current = computed(() => {
   } : fallbackSpotify
 })
 const volume = computed(() => playback.value?.device?.volume_percent ?? 0)
-const progressMs = computed(() => playback.value?.progress_ms ?? 0)
-const progress = computed(() => current.value.durationMs > 0 ? Math.round((progressMs.value / current.value.durationMs) * 100) : 0)
+const progressMs = computed(() => liveProgressMs.value)
+const progress = computed(() => current.value.durationMs > 0 ? Math.min(100, (progressMs.value / current.value.durationMs) * 100) : 0)
+
+function syncProgressTimer() {
+  if (progressTimer) window.clearInterval(progressTimer)
+  progressTimer = undefined
+  liveProgressMs.value = playback.value?.progress_ms ?? 0
+  if (isPlaying.value) {
+    progressTimer = window.setInterval(() => {
+      liveProgressMs.value = Math.min(liveProgressMs.value + 1000, current.value.durationMs)
+    }, 1000)
+  }
+}
+
+watch(() => [playback.value?.progress_ms, playback.value?.is_playing, playback.value?.item?.duration_ms], syncProgressTimer)
 const deviceName = computed(() => playback.value?.device?.name ?? 'Aucun appareil')
 const deviceType = computed(() => playback.value?.device?.type ?? 'Spotify Connect')
 
@@ -98,7 +114,15 @@ async function changeDevice() {
   await refresh()
 }
 
-onMounted(refresh)
+onMounted(() => {
+  void refresh()
+  syncTimer = window.setInterval(() => void refresh(), 15000)
+})
+
+onBeforeUnmount(() => {
+  if (progressTimer) window.clearInterval(progressTimer)
+  if (syncTimer) window.clearInterval(syncTimer)
+})
 </script>
 
 <template>
