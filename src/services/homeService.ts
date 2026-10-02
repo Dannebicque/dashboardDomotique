@@ -69,4 +69,6 @@ export const settingsApi = {
   connectNetatmoUrl: '/api/integrations/netatmo/connect',
   pairHue: () => realHomeApi.pairHue(),
   disconnectHue: () => realHomeApi.disconnectHue(),
+  disconnectSpotify: () => fetch('/api/integrations/spotify', { method: 'DELETE' }),
+  disconnectNetatmo: () => fetch('/api/integrations/netatmo', { method: 'DELETE' }),
 }
