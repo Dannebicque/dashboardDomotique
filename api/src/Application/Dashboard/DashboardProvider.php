@@ -60,7 +60,16 @@ final readonly class DashboardProvider
         $items = [];
         foreach ($devices as $device) {
             $items[] = $this->sensor($device, 'indoor');
-            foreach ($device['modules'] ?? [] as $module) $items[] = $this->sensor($module, ($module['type'] ?? '') === 'NAModule1' ? 'outdoor' : 'indoor');
+            foreach ($device['modules'] ?? [] as $module) {
+                $type = (string) ($module['type'] ?? '');
+                $kind = match ($type) {
+                    'NAModule1' => 'outdoor',
+                    'NAModule2' => 'wind',
+                    'NAModule3' => 'rain',
+                    default => 'indoor',
+                };
+                $items[] = $this->sensor($module, $kind);
+            }
         }
         return ['available' => true, 'source' => 'netatmo', 'items' => array_values(array_filter($items))];
     }
@@ -68,7 +77,6 @@ final readonly class DashboardProvider
     private function sensor(array $item, string $kind): ?array
     {
         $dashboard = $item['dashboard_data'] ?? [];
-        if (!isset($dashboard['Temperature'])) return null;
 
         return [
             'id' => (string) ($item['_id'] ?? ''),
@@ -78,7 +86,7 @@ final readonly class DashboardProvider
             'reachable' => (bool) ($item['reachable'] ?? true),
             'lastSeen' => isset($dashboard['time_utc']) ? (int) $dashboard['time_utc'] : (isset($item['last_seen']) ? (int) $item['last_seen'] : null),
             'batteryPercent' => isset($item['battery_percent']) ? (int) $item['battery_percent'] : null,
-            'temperature' => (float) $dashboard['Temperature'],
+            'temperature' => isset($dashboard['Temperature']) ? (float) $dashboard['Temperature'] : null,
             'humidity' => isset($dashboard['Humidity']) ? (int) $dashboard['Humidity'] : null,
             'co2' => isset($dashboard['CO2']) ? (int) $dashboard['CO2'] : null,
             'noise' => isset($dashboard['Noise']) ? (int) $dashboard['Noise'] : null,
@@ -87,6 +95,12 @@ final readonly class DashboardProvider
             'pressureTrend' => isset($dashboard['pressure_trend']) ? (string) $dashboard['pressure_trend'] : null,
             'minTemperature' => isset($dashboard['min_temp']) ? (float) $dashboard['min_temp'] : null,
             'maxTemperature' => isset($dashboard['max_temp']) ? (float) $dashboard['max_temp'] : null,
+            'windStrength' => isset($dashboard['WindStrength']) ? (float) $dashboard['WindStrength'] : null,
+            'windAngle' => isset($dashboard['WindAngle']) ? (int) $dashboard['WindAngle'] : null,
+            'gustStrength' => isset($dashboard['GustStrength']) ? (float) $dashboard['GustStrength'] : null,
+            'gustAngle' => isset($dashboard['GustAngle']) ? (int) $dashboard['GustAngle'] : null,
+            'rain' => isset($dashboard['Rain']) ? (float) $dashboard['Rain'] : null,
+            'rain24h' => isset($dashboard['sum_rain_24']) ? (float) $dashboard['sum_rain_24'] : null,
         ];
     }
 
