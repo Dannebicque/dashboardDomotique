@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Infrastructure\Netatmo\NetatmoClient;
+use App\Infrastructure\OAuth\RefreshTokenStore;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -14,6 +15,7 @@ final readonly class NetatmoController
 {
     public function __construct(
         private NetatmoClient $netatmo,
+        private RefreshTokenStore $tokens,
         #[Autowire('%env(string:NETATMO_CLIENT_ID)%')] private string $clientId,
         #[Autowire('%env(string:NETATMO_REDIRECT_URI)%')] private string $redirectUri,
     ) {}
@@ -49,6 +51,13 @@ final readonly class NetatmoController
 
         $this->netatmo->exchangeCode((string) $request->query->get('code'), $this->redirectUri);
         return new JsonResponse(['connected' => true]);
+    }
+
+    #[Route('', methods: ['DELETE'])]
+    public function disconnect(): JsonResponse
+    {
+        $this->tokens->remove('netatmo');
+        return new JsonResponse(null, 204);
     }
 
     #[Route('/stations', methods: ['GET'])]
