@@ -33,6 +33,10 @@ export interface SpotifySnapshot {
   progressMs: number
   durationMs: number
   coverUrl: string
+  connected?: boolean
+  deviceName?: string
+  deviceType?: string
+  volumePercent?: number | null
 }
 
 export type DeviceStatus = 'online' | 'offline' | 'updating'
