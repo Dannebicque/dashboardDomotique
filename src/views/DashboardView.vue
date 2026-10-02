@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Droplets, House, Lightbulb, Wind } from 'lucide-vue-next'
+import { CloudRain, Droplets, House, Lightbulb, Wind } from 'lucide-vue-next'
 import SpotifyCard from '../components/SpotifyCard.vue'
 import TopBar from '../components/TopBar.vue'
 import { homeService, type ClimateSensor, type DashboardData } from '../services/homeService'
@@ -9,6 +9,7 @@ import { indoor as fallbackIndoor, outdoor as fallbackOutdoor, rooms as fallback
 const dashboard = ref<DashboardData>({ indoor: structuredClone(fallbackIndoor), outdoor: structuredClone(fallbackOutdoor), upstairs: structuredClone(fallbackUpstairs), weather: structuredClone(fallbackWeather), spotify: structuredClone(fallbackSpotify), rooms: structuredClone(fallbackRooms) })
 const climate = ref<ClimateSensor[]>([])
 const spotify = computed(() => dashboard.value.spotify)
+const weather = computed(() => dashboard.value.weather)
 const lightsOn = computed(() => dashboard.value.rooms.flatMap((room) => room.lights).filter((light) => light.on).length)
 const shuttersOpen = computed(() => dashboard.value.rooms.flatMap((room) => room.shutters).filter((shutter) => shutter.position > 0).length)
 const temperatures = computed(() => {
@@ -33,25 +34,41 @@ onMounted(refreshDashboard)
       <div class="hero-summary"><House :size="22" /><span>Tout semble normal</span></div>
     </section>
 
-    <section class="home-climate-summary">
-      <RouterLink v-for="sensor in temperatures" :key="sensor.id" to="/climat" class="panel climate-zone">
-        <div class="card-eyebrow">{{ sensor.kind === 'outdoor' ? 'Extérieur · Netatmo' : 'Intérieur · Netatmo' }}</div>
-        <h2>{{ sensor.name }}</h2>
-        <div class="climate-zone-value">{{ sensor.temperature?.toFixed(1) }}°</div>
-        <div class="climate-zone-meta">
-          <span><Droplets :size="14" /> {{ sensor.humidity ?? '—' }}%</span>
-          <span v-if="sensor.co2 !== null">{{ sensor.co2 }} ppm CO₂</span>
+    <section class="home-overview">
+      <article class="panel weather-card">
+        <div class="panel-heading">
+          <div><div class="card-eyebrow">Prévisions</div><h2>Météo</h2></div>
+          <CloudRain :size="26" />
         </div>
-      </RouterLink>
-      <RouterLink to="/climat" class="panel climate-zone wind-summary" :class="{ offline: wind && !wind.reachable }">
-        <div class="card-eyebrow">Extérieur · Netatmo</div>
-        <h2>Vent</h2>
-        <div class="wind-summary-value"><Wind :size="28" /><strong>{{ wind?.windStrength !== null && wind?.windStrength !== undefined ? wind.windStrength + ' km/h' : '—' }}</strong></div>
-        <div class="climate-zone-meta">
-          <span v-if="wind?.gustStrength !== null && wind?.gustStrength !== undefined">Rafales {{ wind.gustStrength }} km/h</span>
-          <span v-else>{{ wind?.reachable === false ? 'Capteur hors ligne' : 'Mesure indisponible' }}</span>
+        <div class="weather-main">
+          <div><div class="weather-temperature">{{ weather.temperature }}°</div><div class="weather-label">{{ weather.label }}</div></div>
+          <div class="weather-range">{{ weather.min }}° / {{ weather.max }}°</div>
         </div>
-      </RouterLink>
+        <div class="hourly-list">
+          <div v-for="hour in weather.hourly" :key="hour.time" class="hourly-item"><span>{{ hour.time }}</span><strong>{{ hour.temperature }}°</strong></div>
+        </div>
+      </article>
+
+      <div class="home-climate-summary">
+        <RouterLink v-for="sensor in temperatures" :key="sensor.id" to="/climat" class="panel climate-zone">
+          <div class="card-eyebrow">{{ sensor.kind === 'outdoor' ? 'Extérieur · Netatmo' : 'Intérieur · Netatmo' }}</div>
+          <h2>{{ sensor.name }}</h2>
+          <div class="climate-zone-value">{{ sensor.temperature?.toFixed(1) }}°</div>
+          <div class="climate-zone-meta">
+            <span><Droplets :size="14" /> {{ sensor.humidity ?? '—' }}%</span>
+            <span v-if="sensor.co2 !== null">{{ sensor.co2 }} ppm CO₂</span>
+          </div>
+        </RouterLink>
+        <RouterLink to="/climat" class="panel climate-zone wind-summary" :class="{ offline: wind && !wind.reachable }">
+          <div class="card-eyebrow">Extérieur · Netatmo</div>
+          <h2>Vent</h2>
+          <div class="wind-summary-value"><Wind :size="28" /><strong>{{ wind?.windStrength !== null && wind?.windStrength !== undefined ? wind.windStrength + ' km/h' : '—' }}</strong></div>
+          <div class="climate-zone-meta">
+            <span v-if="wind?.gustStrength !== null && wind?.gustStrength !== undefined">Rafales {{ wind.gustStrength }} km/h</span>
+            <span v-else>{{ wind?.reachable === false ? 'Capteur hors ligne' : 'Mesure indisponible' }}</span>
+          </div>
+        </RouterLink>
+      </div>
     </section>
 
     <section class="dashboard-grid dashboard-grid--compact">
