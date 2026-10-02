@@ -3,14 +3,15 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { CloudRain, Droplets, House, Lightbulb, Wind } from 'lucide-vue-next'
 import SpotifyCard from '../components/SpotifyCard.vue'
 import TopBar from '../components/TopBar.vue'
-import { homeService, type ClimateSensor, type DashboardData } from '../services/homeService'
+import { homeService, realHomeApi, type ClimateSensor, type DashboardData } from '../services/homeService'
 import { indoor as fallbackIndoor, outdoor as fallbackOutdoor, rooms as fallbackRooms, spotify as fallbackSpotify, upstairs as fallbackUpstairs, weather as fallbackWeather } from '../data/mock'
 
 const dashboard = ref<DashboardData>({ indoor: structuredClone(fallbackIndoor), outdoor: structuredClone(fallbackOutdoor), upstairs: structuredClone(fallbackUpstairs), weather: structuredClone(fallbackWeather), spotify: structuredClone(fallbackSpotify), rooms: structuredClone(fallbackRooms) })
 const climate = ref<ClimateSensor[]>([])
+const hueRooms = ref(fallbackRooms)
 const spotify = computed(() => dashboard.value.spotify)
 const weather = computed(() => dashboard.value.weather)
-const lightsOn = computed(() => dashboard.value.rooms.flatMap((room) => room.lights).filter((light) => light.on).length)
+const lightsOn = computed(() => hueRooms.value.flatMap((room) => room.lights).filter((light) => light.on).length)
 const shuttersOpen = computed(() => dashboard.value.rooms.flatMap((room) => room.shutters).filter((shutter) => shutter.position > 0).length)
 const temperatures = computed(() => {
   const wanted = ['salon', 'etage', 'étage', 'jardin']
@@ -19,11 +20,17 @@ const temperatures = computed(() => {
 const wind = computed(() => climate.value.find((sensor) => sensor.kind === 'wind'))
 
 async function refreshDashboard() {
-  const [data, climateData] = await Promise.all([homeService.getDashboard(), homeService.getClimate()])
+  const [data, climateData, roomsData] = await Promise.all([homeService.getDashboard(), homeService.getClimate(), homeService.getRooms()])
   dashboard.value = data
   climate.value = climateData.items
+  hueRooms.value = roomsData
 }
 let refreshTimer: number | undefined
+let hueEvents: EventSource | undefined
+
+async function refreshHue() {
+  hueRooms.value = await homeService.getRooms()
+}
 
 function refreshWhenVisible() {
   if (document.visibilityState === 'visible') void refreshDashboard()
@@ -35,11 +42,13 @@ onMounted(() => {
     if (document.visibilityState === 'visible') void refreshDashboard()
   }, 5 * 60 * 1000)
   document.addEventListener('visibilitychange', refreshWhenVisible)
+  hueEvents = realHomeApi.hueEvents(() => { void refreshHue() })
 })
 
 onBeforeUnmount(() => {
   if (refreshTimer !== undefined) window.clearInterval(refreshTimer)
   document.removeEventListener('visibilitychange', refreshWhenVisible)
+  hueEvents?.close()
 })
 </script>
 
@@ -94,7 +103,7 @@ onBeforeUnmount(() => {
         <div class="panel-heading"><div><div class="card-eyebrow">Maison</div><h2>État rapide</h2></div></div>
         <div class="state-row"><div class="state-icon state-icon--light"><Lightbulb :size="22" /></div><div><strong>{{ lightsOn }} lumières</strong><span>allumées</span></div></div>
         <div class="state-row"><div class="state-icon"><House :size="22" /></div><div><strong>{{ shuttersOpen }} volets</strong><span>ouverts ou partiels</span></div></div>
-        <RouterLink to="/maison" class="primary-button">Piloter la maison</RouterLink>
+        <RouterLink to="/eclairage" class="primary-button">Piloter l’éclairage</RouterLink>
       </article>
     </section>
   </div>
