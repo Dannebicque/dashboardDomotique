@@ -78,9 +78,29 @@ export const realHomeApi = {
   disconnectHue: () => api<void>('/api/integrations/hue', { method: 'DELETE' }),
 }
 
+export interface SpotifyTrackApi {
+  name: string
+  duration_ms: number
+  artists?: Array<{ name: string }>
+  album?: { name?: string; images?: Array<{ url: string }> }
+}
+
+export interface SpotifyPlayback {
+  is_playing: boolean
+  progress_ms: number
+  device?: { id?: string; name?: string; type?: string; volume_percent?: number | null }
+  item?: SpotifyTrackApi | null
+}
+
+export interface SpotifyQueue {
+  currently_playing?: SpotifyTrackApi | null
+  queue?: SpotifyTrackApi[]
+}
+
 export const integrationApi = {
   weather: () => api<Record<string, unknown>>('/api/weather'),
-  spotify: () => api<{ configured: boolean; playback: Record<string, unknown> | null }>('/api/integrations/spotify'),
+  spotify: () => api<{ configured: boolean; playback: SpotifyPlayback | null }>('/api/integrations/spotify'),
+  spotifyQueue: () => api<SpotifyQueue>('/api/integrations/spotify/queue'),
   spotifyCommand: (command: 'play' | 'pause' | 'next' | 'previous') => api<void>(`/api/integrations/spotify/player/${command}`, { method: 'POST' }),
 }
 
