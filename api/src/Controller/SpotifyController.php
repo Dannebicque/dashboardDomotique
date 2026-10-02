@@ -71,6 +71,40 @@ final readonly class SpotifyController
         return new JsonResponse($this->spotify->queue());
     }
 
+    #[Route('/devices', methods: ['GET'])]
+    public function devices(): JsonResponse
+    {
+        return new JsonResponse($this->spotify->devices());
+    }
+
+    #[Route('/volume', methods: ['PUT'])]
+    public function volume(Request $request): JsonResponse
+    {
+        $this->spotify->setVolume((int) ($request->toArray()['volume'] ?? 0));
+        return new JsonResponse(null, 204);
+    }
+
+    #[Route('/shuffle', methods: ['PUT'])]
+    public function shuffle(Request $request): JsonResponse
+    {
+        $this->spotify->setShuffle((bool) ($request->toArray()['enabled'] ?? false));
+        return new JsonResponse(null, 204);
+    }
+
+    #[Route('/repeat', methods: ['PUT'])]
+    public function repeat(Request $request): JsonResponse
+    {
+        $this->spotify->setRepeat((string) ($request->toArray()['state'] ?? 'off'));
+        return new JsonResponse(null, 204);
+    }
+
+    #[Route('/device', methods: ['PUT'])]
+    public function device(Request $request): JsonResponse
+    {
+        $this->spotify->transfer((string) ($request->toArray()['deviceId'] ?? ''));
+        return new JsonResponse(null, 204);
+    }
+
     #[Route('/player/{command}', requirements: ['command' => 'play|pause|next|previous'], methods: ['POST'])]
     public function command(string $command): JsonResponse
     {
