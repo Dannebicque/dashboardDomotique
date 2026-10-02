@@ -109,15 +109,14 @@ final readonly class SpotifyClient
             throw new \RuntimeException(sprintf('Spotify API %d: %s', $status, $message));
         }
 
-        if ('' === trim($content)) {
+        if ('' === trim($content) || 'null' === trim($content)) {
             return [];
         }
 
         $decoded = json_decode($content, true);
-        if (!is_array($decoded)) {
-            throw new \RuntimeException(sprintf('Unexpected Spotify response (%d).', $status));
-        }
 
-        return $decoded;
+        // Spotify control endpoints may return a successful 2xx response
+        // without a JSON object/array payload. The HTTP status is authoritative.
+        return is_array($decoded) ? $decoded : [];
     }
 }
