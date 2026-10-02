@@ -3,21 +3,59 @@
 namespace App\Controller;
 
 use App\Infrastructure\Spotify\SpotifyClient;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\RedirectResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 
-#[Route('/api/media/spotify')]
+#[Route('/api/integrations/spotify')]
 final readonly class SpotifyController
 {
-    public function __construct(private SpotifyClient $spotify) {}
+    public function __construct(
+        private SpotifyClient $spotify,
+        #[Autowire('%env(string:SPOTIFY_CLIENT_ID)%')] private string $clientId,
+        #[Autowire('%env(string:SPOTIFY_REDIRECT_URI)%')] private string $redirectUri,
+    ) {}
 
     #[Route('', methods: ['GET'])]
     public function status(): JsonResponse
     {
-        return new JsonResponse(['configured' => $this->spotify->isConfigured(), 'playback' => $this->spotify->isConfigured() ? $this->spotify->playback() : null]);
+        return new JsonResponse(['provider' => 'spotify', 'configured' => $this->spotify->isConfigured(), 'playback' => $this->spotify->isConfigured() ? $this->spotify->playback() : null]);
     }
 
-    #[Route('/{command}', requirements: ['command' => 'play|pause|next|previous'], methods: ['POST'])]
+    #[Route('/connect', methods: ['GET'])]
+    public function connect(Request $request): RedirectResponse
+    {
+        $state = bin2hex(random_bytes(24));
+        $request->getSession()->set('spotify_oauth_state', $state);
+        $query = http_build_query([
+            'client_id' => $this->clientId,
+            'response_type' => 'code',
+            'redirect_uri' => $this->redirectUri,
+            'scope' => 'user-read-playback-state user-modify-playback-state',
+            'state' => $state,
+        ]);
+        return new RedirectResponse('https://accounts.spotify.com/authorize?'.$query);
+    }
+
+    #[Route('/callback', methods: ['GET'])]
+    public function callback(Request $request): JsonResponse
+    {
+        if (!hash_equals((string) $request->getSession()->remove('spotify_oauth_state'), (string) $request->query->get('state'))) {
+            return new JsonResponse(['error' => 'Invalid OAuth state.'], 400);
+        }
+        $this->spotify->exchangeCode((string) $request->query->get('code'), $this->redirectUri);
+        return new JsonResponse(['connected' => true]);
+    }
+
+    #[Route('/player', methods: ['GET'])]
+    public function player(): JsonResponse
+    {
+        return new JsonResponse($this->spotify->playback());
+    }
+
+    #[Route('/player/{command}', requirements: ['command' => 'play|pause|next|previous'], methods: ['POST'])]
     public function command(string $command): JsonResponse
     {
         $this->spotify->command($command);
