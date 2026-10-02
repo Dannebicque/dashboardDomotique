@@ -48,3 +48,10 @@ export const realHomeApi = {
   hueStatus: () => api<{ provider: 'hue'; configured: boolean }>('/api/integrations/hue'),
   pairHue: () => api<{ applicationKey: string; message: string }>('/api/integrations/hue/pair', { method: 'POST' }),
 }
+
+export const integrationApi = {
+  weather: () => api<Record<string, unknown>>('/api/weather'),
+  spotify: () => api<{ configured: boolean; playback: Record<string, unknown> | null }>('/api/media/spotify'),
+  spotifyCommand: (command: 'play' | 'pause' | 'next' | 'previous') =>
+    fetch(`/api/media/spotify/${command}`, { method: 'POST' }),
+}
