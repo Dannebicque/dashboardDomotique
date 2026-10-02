@@ -13,12 +13,12 @@ export interface DashboardData {
 export interface ClimateSensor {
   id: string
   name: string
-  kind: 'indoor' | 'outdoor'
+  kind: 'indoor' | 'outdoor' | 'wind' | 'rain'
   moduleType: string
   reachable: boolean
   lastSeen: number | null
   batteryPercent: number | null
-  temperature: number
+  temperature: number | null
   humidity: number | null
   co2: number | null
   noise: number | null
@@ -27,6 +27,12 @@ export interface ClimateSensor {
   pressureTrend: string | null
   minTemperature: number | null
   maxTemperature: number | null
+  windStrength: number | null
+  windAngle: number | null
+  gustStrength: number | null
+  gustAngle: number | null
+  rain: number | null
+  rain24h: number | null
 }
 
 interface DashboardApiResponse {
@@ -43,8 +49,8 @@ async function api<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 function mapDashboard(raw: DashboardApiResponse): DashboardData {
-  const indoorSensors = raw.sensors.available ? raw.sensors.items?.filter((sensor) => sensor.kind === 'indoor') ?? [] : []
-  const outdoorSensor = raw.sensors.available ? raw.sensors.items?.find((sensor) => sensor.kind === 'outdoor') : undefined
+  const indoorSensors = raw.sensors.available ? raw.sensors.items?.filter((sensor) => sensor.kind === 'indoor' && sensor.temperature !== null) ?? [] : []
+  const outdoorSensor = raw.sensors.available ? raw.sensors.items?.find((sensor) => sensor.kind === 'outdoor' && sensor.temperature !== null) : undefined
   const mainIndoor = indoorSensors.find((sensor) => sensor.name.toLowerCase() === 'salon') ?? indoorSensors[0]
   const floorSensor = indoorSensors.find((sensor) => sensor.name.toLowerCase().includes('etage') || sensor.name.toLowerCase().includes('étage')) ?? indoorSensors.find((sensor) => sensor.id !== mainIndoor?.id)
 
