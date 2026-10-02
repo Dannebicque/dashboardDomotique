@@ -77,14 +77,24 @@ final readonly class HueClient
             }
 
             $buffer .= $chunk->getContent();
+
+            // Normalize CRLF used by the Hue bridge so SSE frames are always
+            // separated by a simple blank line.
+            $buffer = str_replace("\r\n", "\n", $buffer);
+
             while (false !== ($separator = strpos($buffer, "\n\n"))) {
                 $event = substr($buffer, 0, $separator);
                 $buffer = substr($buffer, $separator + 2);
 
-                foreach (preg_split('/\r?\n/', $event) ?: [] as $line) {
+                $data = [];
+                foreach (explode("\n", $event) as $line) {
                     if (str_starts_with($line, 'data:')) {
-                        yield trim(substr($line, 5));
+                        $data[] = ltrim(substr($line, 5));
                     }
+                }
+
+                if ([] !== $data) {
+                    yield implode("\n", $data);
                 }
             }
         }
